@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.next/
+*.tsbuildinfo
+coverage/
+data/
+logs/
+cache/
+pnpm-lock.yaml
+_aemeath_*.json

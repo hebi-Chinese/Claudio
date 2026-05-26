@@ -1,0 +1,13 @@
+{
+  "extends": "@claudio/configs/tsconfig.node.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*"],
+  "references": [
+    { "path": "../domain" },
+    { "path": "../application" },
+    { "path": "../shared" }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "name": "@claudio/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -b",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "lint": "eslint src --max-warnings 0",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@claudio/application": "workspace:*",
+    "@claudio/domain": "workspace:*",
+    "@claudio/infrastructure": "workspace:*",
+    "@claudio/shared": "workspace:*",
+    "@fastify/cors": "catalog:",
+    "@fastify/websocket": "catalog:",
+    "fastify": "catalog:",
+    "node-cron": "catalog:",
+    "pino": "catalog:",
+    "pino-pretty": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@claudio/configs": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/node-cron": "catalog:",
+    "eslint": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

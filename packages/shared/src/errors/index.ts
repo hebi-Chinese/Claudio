@@ -1,0 +1,31 @@
+// 领域错误类层级（CODING_STANDARDS §5.3 错误信息原则）
+// 所有自定义错误继承 DomainError，便于 instanceof 收窄
+
+export class DomainError extends Error {
+  override readonly name: string = 'DomainError'
+}
+
+export class NotFoundError extends DomainError {
+  override readonly name = 'NotFoundError'
+
+  constructor(resource: string, id: string) {
+    super(`${resource} not found: ${id}`)
+  }
+}
+
+export class ValidationError extends DomainError {
+  override readonly name = 'ValidationError'
+}
+
+export class ExternalServiceError extends DomainError {
+  override readonly name = 'ExternalServiceError'
+
+  constructor(
+    service: string,
+    message: string,
+    public readonly statusCode?: number,
+    options?: ErrorOptions,
+  ) {
+    super(`[${service}] ${message}`, options)
+  }
+}

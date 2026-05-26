@@ -1,0 +1,38 @@
+/* eslint-disable @typescript-eslint/require-await -- better-sqlite3 is sync */
+// AccountRepo · ncm_account 持久 cookie 等元信息
+
+import { eq } from 'drizzle-orm'
+
+import { ncmAccount } from '../schema.js'
+
+import type { DbClient } from '../client.js'
+
+export type INcmAccountRepo = {
+  saveCookie(cookie: string): Promise<void>
+  loadCookie(): Promise<string | null>
+  clear(): Promise<void>
+}
+
+export function createNcmAccountRepo(client: DbClient): INcmAccountRepo {
+  return {
+    async saveCookie(cookie: string): Promise<void> {
+      client.db
+        .insert(ncmAccount)
+        .values({ id: 1, cookie, loggedInAtMs: Date.now() })
+        .onConflictDoUpdate({
+          target: ncmAccount.id,
+          set: { cookie, loggedInAtMs: Date.now() },
+        })
+        .run()
+    },
+
+    async loadCookie(): Promise<string | null> {
+      const rows = client.db.select().from(ncmAccount).where(eq(ncmAccount.id, 1)).all()
+      return rows[0]?.cookie ?? null
+    },
+
+    async clear(): Promise<void> {
+      client.db.delete(ncmAccount).where(eq(ncmAccount.id, 1)).run()
+    },
+  }
+}

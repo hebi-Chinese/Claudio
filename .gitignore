@@ -1,0 +1,41 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build artifacts
+dist/
+build/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# data / runtime
+*.db
+*.db-journal
+data/
+logs/
+cache/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# coverage / test
+coverage/
+.vitest/
+
+# 临时 aemeath JSON 文件（项目根的桌宠推送临时存储）
+_aemeath_*.json
+
+# misc
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -1,0 +1,48 @@
+{
+  "name": "@claudio/infrastructure",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./brain": "./src/brain/index.ts",
+    "./ncm": "./src/ncm/index.ts",
+    "./ncm-client": "./src/ncm/index.ts",
+    "./tts": "./src/tts/index.ts",
+    "./calendar": "./src/calendar/index.ts",
+    "./signal": "./src/signal/index.ts",
+    "./db": "./src/db/index.ts"
+  },
+  "scripts": {
+    "dev": "tsc -b --watch",
+    "build": "tsc -b",
+    "test": "vitest run",
+    "lint": "eslint src --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "@claudio/application": "workspace:*",
+    "@claudio/domain": "workspace:*",
+    "@claudio/shared": "workspace:*",
+    "NeteaseCloudMusicApi": "catalog:",
+    "better-sqlite3": "catalog:",
+    "drizzle-orm": "catalog:",
+    "execa": "catalog:",
+    "undici": "catalog:",
+    "zod": "catalog:",
+    "zod-to-json-schema": "catalog:"
+  },
+  "devDependencies": {
+    "@claudio/configs": "workspace:*",
+    "@types/better-sqlite3": "catalog:",
+    "@types/node": "catalog:",
+    "drizzle-kit": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@claudio/arch-test",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "depcruise --config .dependency-cruiser.cjs ../../apps ../../packages",
+    "dev": "echo \"arch-test has no dev mode\" && exit 0",
+    "build": "echo \"arch-test has no build\" && exit 0",
+    "test": "pnpm check",
+    "lint": "echo \"arch-test has no lint\" && exit 0",
+    "typecheck": "echo \"arch-test has no typecheck\" && exit 0"
+  },
+  "devDependencies": {
+    "dependency-cruiser": "catalog:"
+  }
+}
