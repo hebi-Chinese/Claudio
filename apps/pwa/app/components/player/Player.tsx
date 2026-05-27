@@ -1,50 +1,224 @@
 'use client'
 
-import { useState } from 'react'
+// Player · 顶层组装 — 房间永远在,Sill 按 ViewMode 切
+// 关注点:
+//  · audio 元素全局唯一 (Browse/Listen 共用,切 sill 不卸载)
+//  · data-mode 挂在 <html> 上,驱动 CSS 的关窗动效 / 房间暗化
+//  · 追踪 previousSong + userInitiated 给 DJ 用
+//  · 顶栏: 设置 / cmdK 搜索
+//  · 搜索方案 C (cmdK 浮窗) + D (DJ Chat 对话点歌)
+
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { AtmosphereStage } from '../atmosphere/AtmosphereStage'
-import { WeatherSwitcher } from '../atmosphere/WeatherSwitcher'
+import { BrowseSill } from '../browse/BrowseSill'
+import { CommandPalette } from '../command/CommandPalette'
+import { useCommandPalette } from '../command/useCommandPalette'
+import { ListenSill } from '../listen/ListenSill'
+import { RoomScene } from '../room/RoomScene'
+import { SettingsPanel } from '../settings/SettingsPanel'
+import { useLanguage } from '../settings/useLanguage'
 
-import { ControlsBar } from './ControlsBar'
-import { ListenMode } from './ListenMode'
-import { NowPlayingCard } from './NowPlayingCard'
-import { QueuePanel } from './QueuePanel'
-import { SearchPanel } from './SearchPanel'
 import { usePlayerLogic } from './usePlayerLogic'
-import { useSearch } from './useSearch'
 import { useViewMode } from './useViewMode'
 
+import type { PlayerLogic } from './usePlayerLogic'
 import type { ApiSong } from '../../lib/api'
 import type { Weather } from '../atmosphere/types'
+import type { LanguageHook } from '../settings/useLanguage'
 
 export function Player() {
   const logic = usePlayerLogic()
-  const search = useSearch()
   const view = useViewMode()
+  const language = useLanguage()
+  const cmdk = useCommandPalette()
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [weather, setWeather] = useState<Weather>('rain')
+  const trackMeta = useTrackMeta(logic.currentSong)
+  useDataModeSync(view.mode)
 
-  const playSongAndListen = (song: ApiSong): void => {
-    logic.actions.playSong(song)
-    view.enterListen()
-  }
+  const playAndListen = useCallback(
+    (song: ApiSong) => {
+      trackMeta.markUserInitiated()
+      logic.actions.playSong(song)
+      view.enterListen()
+    },
+    [logic.actions, view, trackMeta],
+  )
+  const playKeepView = useCallback(
+    (song: ApiSong) => {
+      trackMeta.markUserInitiated()
+      logic.actions.playSong(song)
+    },
+    [logic.actions, trackMeta],
+  )
 
   return (
     <AtmosphereStage weather={weather}>
       <SharedAudio logic={logic} />
-      <PlayerLayers
-        logic={logic}
-        search={search}
-        view={view}
-        weather={weather}
-        onWeatherChange={setWeather}
-        onPlayAndListen={playSongAndListen}
-      />
+      <RoomScene>
+        <PlayerShell
+          logic={logic}
+          view={view}
+          language={language}
+          cmdk={cmdk}
+          settingsOpen={settingsOpen}
+          setSettingsOpen={setSettingsOpen}
+          weather={weather}
+          setWeather={setWeather}
+          trackMeta={trackMeta}
+          playAndListen={playAndListen}
+          playKeepView={playKeepView}
+        />
+      </RoomScene>
     </AtmosphereStage>
   )
 }
 
-function SharedAudio({ logic }: { readonly logic: ReturnType<typeof usePlayerLogic> }) {
-  // audio 元素全局唯一,Browse/Listen 都共用,避免切换 mode 时 audio 被卸载导致中断
+type ShellProps = {
+  readonly logic: PlayerLogic
+  readonly view: ReturnType<typeof useViewMode>
+  readonly language: LanguageHook
+  readonly cmdk: ReturnType<typeof useCommandPalette>
+  readonly settingsOpen: boolean
+  readonly setSettingsOpen: (v: boolean) => void
+  readonly weather: Weather
+  readonly setWeather: (w: Weather) => void
+  readonly trackMeta: TrackMeta
+  readonly playAndListen: (s: ApiSong) => void
+  readonly playKeepView: (s: ApiSong) => void
+}
+
+function PlayerShell(p: ShellProps) {
+  return (
+    <>
+      <TopToolbar
+        language={p.language}
+        onOpenSettings={() => {
+          p.setSettingsOpen(true)
+        }}
+        onOpenCmdk={p.cmdk.toggle}
+      />
+      <SillSwitcher
+        logic={p.logic}
+        view={p.view}
+        language={p.language}
+        trackMeta={p.trackMeta}
+        playAndListen={p.playAndListen}
+        playKeepView={p.playKeepView}
+      />
+      <CommandPalette
+        open={p.cmdk.open}
+        onClose={() => {
+          p.cmdk.setOpen(false)
+        }}
+        language={p.language}
+        onPlay={p.view.mode === 'listen' ? p.playKeepView : p.playAndListen}
+        onEnqueue={p.logic.actions.queueSong}
+      />
+      <SettingsPanel
+        open={p.settingsOpen}
+        onClose={() => {
+          p.setSettingsOpen(false)
+        }}
+        language={p.language}
+        weather={p.weather}
+        onWeatherChange={p.setWeather}
+      />
+    </>
+  )
+}
+
+type SwitcherProps = Pick<
+  ShellProps,
+  'logic' | 'view' | 'language' | 'trackMeta' | 'playAndListen' | 'playKeepView'
+>
+
+function SillSwitcher(p: SwitcherProps) {
+  if (p.view.mode === 'listen') {
+    return (
+      <ListenSill
+        audioRef={p.logic.audioRef}
+        song={p.logic.currentSong}
+        previousSong={p.trackMeta.previousSong}
+        playing={p.logic.state.playing}
+        lrcLines={p.logic.state.lrcLines}
+        lrcLoading={p.logic.state.lrcLoading}
+        activeLrcIndex={p.logic.activeLrcIndex}
+        userInitiatedTrack={p.trackMeta.userInitiated}
+        language={p.language}
+        onTogglePlay={p.logic.actions.togglePlay}
+        onPrev={() => {
+          p.trackMeta.markUserInitiated()
+          p.logic.actions.handlePrev()
+        }}
+        onNext={() => {
+          p.trackMeta.markUserInitiated()
+          p.logic.actions.handleNext()
+        }}
+        onExit={p.view.exitListen}
+        onPlay={p.playKeepView}
+      />
+    )
+  }
+  return <BrowseSill logic={p.logic} language={p.language} onPlayAndListen={p.playAndListen} />
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// data-mode 同步 — 把 view.mode 写到 <html data-mode="..."> 驱动 CSS
+// 也确保 [data-theme='minimal'] 和 [data-mode='dark'|...] 都存在
+
+function useDataModeSync(mode: 'browse' | 'listen'): void {
+  useEffect(() => {
+    const root = document.documentElement
+    root.setAttribute('data-theme', 'minimal')
+    // CSS 用 [data-mode='listen'] 触发关窗 / 暗化;Browse 时清空让默认透明 + 暗值=0
+    if (mode === 'listen') {
+      root.setAttribute('data-mode', 'listen')
+    } else {
+      root.setAttribute('data-mode', 'dark')
+    }
+  }, [mode])
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// 追踪上一首 + 切歌发起方 (DJ 文案要用)
+// userInitiated 在用户操作前置 true,任何一次 currentSong 变化后会落到 prev,
+// 然后被自动重置回 false (默认自动续播判定)
+
+type TrackMeta = {
+  readonly previousSong: ApiSong | undefined
+  readonly userInitiated: boolean
+  readonly markUserInitiated: () => void
+}
+
+// 用 ref 记住上一首 ApiSong 整对象,切歌时把 ref 旧值落到 state
+function useTrackMeta(currentSong: ApiSong | undefined): TrackMeta {
+  const [previousSong, setPreviousSong] = useState<ApiSong | undefined>(undefined)
+  const [userInitiated, setUserInitiated] = useState(false)
+  const pendingUserFlag = useRef(false)
+  const lastSongRef = useRef<ApiSong | undefined>(undefined)
+
+  useEffect(() => {
+    if (currentSong?.id === lastSongRef.current?.id) return
+    if (lastSongRef.current !== undefined) {
+      setPreviousSong(lastSongRef.current)
+    }
+    lastSongRef.current = currentSong
+    setUserInitiated(pendingUserFlag.current)
+    pendingUserFlag.current = false
+  }, [currentSong])
+
+  const markUserInitiated = useCallback(() => {
+    pendingUserFlag.current = true
+  }, [])
+
+  return { previousSong, userInitiated, markUserInitiated }
+}
+
+// ────────────────────────────────────────────────────────────────────────
+
+function SharedAudio({ logic }: { readonly logic: PlayerLogic }) {
   return (
     <audio
       ref={logic.audioRef}
@@ -58,165 +232,36 @@ function SharedAudio({ logic }: { readonly logic: ReturnType<typeof usePlayerLog
   )
 }
 
-type PlayerLayersProps = {
-  readonly logic: ReturnType<typeof usePlayerLogic>
-  readonly search: ReturnType<typeof useSearch>
-  readonly view: ReturnType<typeof useViewMode>
-  readonly weather: Weather
-  readonly onWeatherChange: (w: Weather) => void
-  readonly onPlayAndListen: (song: ApiSong) => void
-}
-
-function PlayerLayers(props: PlayerLayersProps) {
-  const { logic, search, view, weather, onWeatherChange, onPlayAndListen } = props
-  const onSearchSubmit = (): void => {
-    void search.submit(logic.actions.setError)
-  }
-  if (view.mode === 'listen') {
-    return (
-      <ListenMode
-        audioRef={logic.audioRef}
-        song={logic.currentSong}
-        playing={logic.state.playing}
-        lrcLines={logic.state.lrcLines}
-        lrcLoading={logic.state.lrcLoading}
-        activeLrcIndex={logic.activeLrcIndex}
-        onTogglePlay={logic.actions.togglePlay}
-        onPrev={logic.actions.handlePrev}
-        onNext={logic.actions.handleNext}
-        onExit={view.exitListen}
-      />
-    )
-  }
+function TopToolbar({
+  language,
+  onOpenSettings,
+  onOpenCmdk,
+}: {
+  readonly language: LanguageHook
+  readonly onOpenSettings: () => void
+  readonly onOpenCmdk: () => void
+}) {
+  const { t } = language
   return (
-    <BrowseLayer
-      logic={logic}
-      search={search}
-      weather={weather}
-      onWeatherChange={onWeatherChange}
-      onSearchSubmit={onSearchSubmit}
-      onPlayAndListen={onPlayAndListen}
-    />
-  )
-}
-
-type BrowseLayerProps = {
-  readonly logic: ReturnType<typeof usePlayerLogic>
-  readonly search: ReturnType<typeof useSearch>
-  readonly weather: Weather
-  readonly onWeatherChange: (w: Weather) => void
-  readonly onSearchSubmit: () => void
-  readonly onPlayAndListen: (song: ApiSong) => void
-}
-
-function BrowseLayer(props: BrowseLayerProps) {
-  const { logic, search, weather, onWeatherChange, onSearchSubmit, onPlayAndListen } = props
-  return (
-    <>
-      <WeatherSwitcher weather={weather} onChange={onWeatherChange} />
-      <div className="min-h-screen text-white">
-        <div className="max-w-6xl mx-auto px-6 py-10 pb-32">
-          <PageHeader />
-          {logic.state.error !== undefined ? <ErrorBanner message={logic.state.error} /> : null}
-          <MainGrid
-            logic={logic}
-            search={search}
-            onSearchSubmit={onSearchSubmit}
-            onPlayAndListen={onPlayAndListen}
-          />
-        </div>
-        <BottomControls logic={logic} />
-      </div>
-    </>
-  )
-}
-
-function PageHeader() {
-  return (
-    <header className="mb-10">
-      <h1 className="text-5xl font-light tracking-[-0.04em] text-white">Claudio</h1>
-      <p className="text-white/55 text-sm mt-2 tracking-wide">个人 AI 电台</p>
-    </header>
-  )
-}
-
-function ErrorBanner({ message }: { readonly message: string }) {
-  return (
-    <div className="mb-4 p-3 rounded-xl bg-red-500/15 backdrop-blur-xl border border-red-500/25 text-red-100 text-sm">
-      {message}
+    <div className="top-toolbar">
+      <button
+        type="button"
+        className="tool-btn"
+        onClick={onOpenCmdk}
+        aria-label={t('search')}
+        title={`${t('search')}  ⌘K`}
+      >
+        ⌕
+      </button>
+      <button
+        type="button"
+        className="tool-btn"
+        onClick={onOpenSettings}
+        aria-label={t('settings')}
+        title={t('settings')}
+      >
+        ⚙
+      </button>
     </div>
-  )
-}
-
-type MainGridProps = {
-  readonly logic: ReturnType<typeof usePlayerLogic>
-  readonly search: ReturnType<typeof useSearch>
-  readonly onSearchSubmit: () => void
-  readonly onPlayAndListen: (song: ApiSong) => void
-}
-
-function MainGrid(props: MainGridProps) {
-  const { logic, search, onSearchSubmit, onPlayAndListen } = props
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-5">
-      <main className="space-y-5">
-        <GlassPanel>
-          <SearchPanel
-            query={search.query}
-            onQueryChange={search.setQuery}
-            onSubmit={onSearchSubmit}
-            searching={search.searching}
-            results={search.results}
-            onPlay={onPlayAndListen}
-            onEnqueue={logic.actions.queueSong}
-          />
-        </GlassPanel>
-        <GlassPanel>
-          <NowPlayingCard
-            song={logic.currentSong}
-            lrcLines={logic.state.lrcLines}
-            lrcLoading={logic.state.lrcLoading}
-            activeLrcIndex={logic.activeLrcIndex}
-          />
-        </GlassPanel>
-      </main>
-      <GlassPanel>
-        <QueuePanel
-          queue={logic.state.queue}
-          currentIndex={logic.state.currentIndex}
-          onRemove={logic.actions.removeFromQueue}
-        />
-      </GlassPanel>
-    </div>
-  )
-}
-
-function BottomControls({ logic }: { readonly logic: ReturnType<typeof usePlayerLogic> }) {
-  return (
-    <ControlsBar
-      playing={logic.state.playing}
-      hasSong={logic.currentSong !== undefined}
-      queueEmpty={logic.state.queue.length === 0}
-      currentTimeSec={logic.state.currentTimeSec}
-      durationSec={logic.state.durationSec}
-      volume={logic.state.volume}
-      muted={logic.state.muted}
-      mode={logic.state.mode}
-      onPrev={logic.actions.handlePrev}
-      onNext={logic.actions.handleNext}
-      onTogglePlay={logic.actions.togglePlay}
-      onSeek={logic.actions.onSeek}
-      onVolumeChange={logic.actions.setVolume}
-      onToggleMute={logic.actions.toggleMute}
-      onCycleMode={logic.actions.cycleMode}
-    />
-  )
-}
-
-function GlassPanel({ children }: { readonly children: React.ReactNode }) {
-  return (
-    <section className="rounded-2xl bg-white/6 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.25)] p-6">
-      {children}
-    </section>
   )
 }

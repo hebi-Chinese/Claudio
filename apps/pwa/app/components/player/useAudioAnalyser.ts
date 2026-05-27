@@ -1,13 +1,18 @@
 // useAudioAnalyser · 把 <audio> ref 接到 Web Audio AnalyserNode
 // 返回平滑后的 48 bar 频率数据 (log-scale 抽样)
-// 失败 (CORS / 浏览器拒绝 / autoplay 限制) 时 bars 为 null,组件自己 fallback
+//
+// 关键约束: createMediaElementSource 会**夺走** audio 元素的默认输出,
+// 此后声音必须经过 audioCtx 图才能播。一旦 ctx 是 suspended (Chrome
+// autoplay policy 常态),声音就**完全没了**。所以:
+// 1) 创建后立即 ctx.resume(),失败就不接 analyser 让 audio 走默认路径
+// 2) 失败 / 取不到时, bars 为 null,组件 fallback 静态呼吸,**优先保声音**
 
 import { useEffect, useRef, useState } from 'react'
 
 const FFT_SIZE = 256
-const USED_BINS = 64       // 取前 64 bin (0-11kHz),人耳关心范围
+const USED_BINS = 64
 const BAR_COUNT = 48
-const SMOOTHING = 0.7      // 低通: prev * 0.7 + new * 0.3
+const SMOOTHING = 0.7
 
 type State = {
   readonly bars: readonly number[] | null
@@ -35,9 +40,9 @@ export function useAudioAnalyser(audioRef: React.RefObject<HTMLAudioElement | nu
     const audio = audioRef.current
     if (audio === null) return
     const attach = (): void => {
-      tryAttach(audio, refs, setActive, setBars)
+      void tryAttach(audio, refs, setActive, setBars)
     }
-    audio.addEventListener('play', attach, { once: true })
+    audio.addEventListener('play', attach)
     if (!audio.paused) attach()
     return () => {
       cancelAnimationFrame(refs.raf.current)
@@ -48,25 +53,31 @@ export function useAudioAnalyser(audioRef: React.RefObject<HTMLAudioElement | nu
   return { bars, active }
 }
 
-function tryAttach(
+async function tryAttach(
   audio: HTMLAudioElement,
   refs: AnalyserRefs,
   setActive: (v: boolean) => void,
   setBars: (v: readonly number[]) => void,
-): void {
+): Promise<void> {
   if (refs.mounted.current) return
+  refs.mounted.current = true
   try {
     const ctx = new AudioContext()
+    // 必须 resume,否则 ctx 是 suspended 状态、整条 graph 静默,等于劫持了 audio
+    if (ctx.state === 'suspended') {
+      await ctx.resume()
+    }
     const source = ctx.createMediaElementSource(audio)
     const analyser = ctx.createAnalyser()
     analyser.fftSize = FFT_SIZE
     source.connect(analyser)
-    analyser.connect(ctx.destination) // 别忘了接出去,否则静音
+    analyser.connect(ctx.destination)
     refs.analyser.current = analyser
-    refs.mounted.current = true
     setActive(true)
     startLoop(refs, setBars)
   } catch {
+    // resume 失败 / createMediaElementSource 失败 → 不接,audio 自己播,viz 走 fallback
+    refs.mounted.current = false
     setActive(false)
   }
 }
@@ -93,7 +104,6 @@ function startLoop(refs: AnalyserRefs, setBars: (v: readonly number[]) => void):
   refs.raf.current = requestAnimationFrame(tick)
 }
 
-// USED_BINS log-scale 重采样到 BAR_COUNT (低频密高频疏,贴近人耳)
 function sampleLogScale(freqData: Uint8Array): number[] {
   const result = new Array<number>(BAR_COUNT)
   for (let i = 0; i < BAR_COUNT; i++) {

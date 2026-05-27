@@ -1,9 +1,10 @@
 'use client'
 
-// VinylRecord · Listen 模式底部中央的旋转唱片
-// 视觉层 (底→上): 黑色基底 + 同心唱纹 + 圆形封面 + 暖金轴心
-// 旋转: 12s linear infinite, paused 时停转
-// 切歌: 待 v0.2 加入场动效 (rotate +30deg fade out → 换 cover → spring 回)
+// VinylRecord · Listen 模式视觉主角 — 真旋转的唱片,中心贴 NCM 封面
+// 比之前大一档,放在视口中上,占据视觉焦点
+// 切歌时旧封面 rotate+fade out,新封面 spring 弹回 (key 变化触发)
+
+import { useEffect, useState } from 'react'
 
 import type { ApiSong } from '../../lib/api'
 
@@ -12,30 +13,49 @@ type Props = {
   readonly playing: boolean
 }
 
+const SIZE = 'clamp(280px, 36vw, 480px)' // 比上版大
+
 export function VinylRecord({ song, playing }: Props) {
+  const enterKey = useEnterKey(song?.id)
   return (
     <div
-      aria-label={song !== undefined ? `正在播放: ${song.title} · ${song.artists.map((a) => a.name).join(', ')}` : '唱片机'}
+      aria-label={
+        song !== undefined
+          ? `正在播放: ${song.title} · ${song.artists.map((a) => a.name).join(', ')}`
+          : '唱片机'
+      }
       role="img"
-      className="relative rounded-full"
-      style={{
-        width: 'clamp(240px, 28vw, 360px)',
-        height: 'clamp(240px, 28vw, 360px)',
-        background: 'radial-gradient(circle at 35% 35%, oklch(15% 0 0) 0%, oklch(6% 0 0) 100%)',
-        boxShadow:
-          '0 0 60px oklch(82% 0.13 75 / 0.12), 0 24px 48px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.04)',
-        animation: 'vinyl-spin 12s linear infinite',
-        animationPlayState: playing ? 'running' : 'paused',
-      }}
+      className="relative"
+      style={{ width: SIZE, height: SIZE }}
     >
-      {/* 同心唱纹: 8 圈 */}
-      <Grooves />
-      {/* 圆形封面贴纸 (label) */}
-      <CenterLabel song={song} />
-      {/* 暖金轴心 */}
-      <Spindle />
+      <div
+        key={enterKey}
+        className="absolute inset-0 rounded-full enter-vinyl"
+        style={{
+          background:
+            'radial-gradient(circle at 35% 35%, oklch(15% 0 0) 0%, oklch(5% 0 0) 70%, oklch(3% 0 0) 100%)',
+          boxShadow:
+            '0 0 80px oklch(82% 0.13 75 / 0.15), 0 32px 64px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(255,255,255,0.05)',
+          animation: `vinyl-spin 12s linear infinite${playing ? '' : ' paused'}`,
+          animationPlayState: playing ? 'running' : 'paused',
+        }}
+      >
+        <Grooves />
+        <CenterLabel song={song} />
+        <Spindle />
+      </div>
+      <Highlight />
     </div>
   )
+}
+
+// song.id 变化触发入场动画
+function useEnterKey(id: string | undefined): string {
+  const [key, setKey] = useState(id ?? 'empty')
+  useEffect(() => {
+    setKey(id ?? 'empty')
+  }, [id])
+  return key
 }
 
 function Grooves() {
@@ -46,8 +66,8 @@ function Grooves() {
       preserveAspectRatio="none"
       aria-hidden="true"
     >
-      {Array.from({ length: 8 }, (_, i) => {
-        const r = 18 + i * 3.5
+      {Array.from({ length: 12 }, (_, i) => {
+        const r = 14 + i * 2.8
         return (
           <circle
             key={i}
@@ -55,9 +75,9 @@ function Grooves() {
             cy="50"
             r={r}
             fill="none"
-            stroke="oklch(20% 0 0)"
-            strokeWidth="0.15"
-            opacity="0.4"
+            stroke="oklch(22% 0 0)"
+            strokeWidth="0.12"
+            opacity={0.5 - (i / 12) * 0.2}
           />
         )
       })}
@@ -66,16 +86,14 @@ function Grooves() {
 }
 
 function CenterLabel({ song }: { readonly song: ApiSong | undefined }) {
-  // 中心圆标贴, 占盘面 40% 直径
-  const labelSize = '40%'
   return (
     <div
       className="absolute top-1/2 left-1/2 rounded-full overflow-hidden"
       style={{
-        width: labelSize,
-        height: labelSize,
+        width: '38%',
+        height: '38%',
         transform: 'translate(-50%, -50%)',
-        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.06), 0 0 12px rgba(0,0,0,0.4)',
+        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08), 0 0 16px rgba(0,0,0,0.5)',
         background: 'oklch(22% 0.04 50)',
       }}
     >
@@ -95,11 +113,26 @@ function Spindle() {
     <div
       className="absolute top-1/2 left-1/2 rounded-full"
       style={{
-        width: 10,
-        height: 10,
+        width: 12,
+        height: 12,
         transform: 'translate(-50%, -50%)',
-        background: 'radial-gradient(circle, oklch(80% 0.13 70) 0%, oklch(55% 0.10 60) 80%)',
-        boxShadow: '0 0 4px rgba(0,0,0,0.6), inset 0 0 2px oklch(15% 0 0)',
+        background:
+          'radial-gradient(circle, oklch(82% 0.13 70) 0%, oklch(55% 0.10 60) 80%)',
+        boxShadow: '0 0 6px rgba(0,0,0,0.7), inset 0 0 2px oklch(15% 0 0)',
+      }}
+      aria-hidden="true"
+    />
+  )
+}
+
+// 唱片表面光泽 (整圆斜向反光),静止不旋转,叠在最上
+function Highlight() {
+  return (
+    <div
+      className="absolute inset-0 rounded-full pointer-events-none"
+      style={{
+        background:
+          'linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 30%, transparent 70%, rgba(255,255,255,0.03) 100%)',
       }}
       aria-hidden="true"
     />

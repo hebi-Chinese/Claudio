@@ -1,9 +1,9 @@
 'use client'
 
-// ImmersiveLyrics · Listen 模式的大字歌词
-// 跟传统 lrc 滚动列表不同: 只渲染 active ±2 行,active 居中
-// active 满色亮; ±1 模糊 + 半透;±2 更弱;超出不渲染
-// 无 LRC 时回落到歌名 + 歌手 + 呼吸
+// ImmersiveLyrics · Listen 模式底部歌词带 (单行强 + 上下行弱,共 3 行可见)
+// 不是占满屏的大字阵列,是窗台下方一段安静的字幕带
+// active 居中且最显眼; prev/next 极弱辅助
+// 无 LRC 时只显示歌名 + 歌手居中
 
 import type { ApiSong } from '../../lib/api'
 import type { LrcLine } from '../../lib/lrc'
@@ -15,106 +15,84 @@ type Props = {
   readonly activeIndex: number
 }
 
-const LINE_HEIGHT_EM = 2.4 // 行距
-
 export function ImmersiveLyrics(props: Props) {
-  if (props.song === undefined) {
-    return <EmptyState />
-  }
-  if (props.loading) {
-    return <LoadingState />
-  }
-  if (props.lines.length === 0) {
-    return <NoLyricFallback song={props.song} />
-  }
-  return <Lines lines={props.lines} activeIndex={props.activeIndex} />
+  if (props.song === undefined) return <Empty />
+  if (props.loading) return <Loading />
+  if (props.lines.length === 0) return <NoLyricFallback song={props.song} />
+  return <Strip lines={props.lines} activeIndex={props.activeIndex} />
 }
 
-const LINES_CONTAINER_STYLE: React.CSSProperties = {
+const STRIP_STYLE: React.CSSProperties = {
   fontFamily: '"Source Han Serif SC", "Songti SC", "Noto Serif SC", serif',
-  fontWeight: 200,
-  fontSize: 'clamp(1.75rem, 2.6vw, 3rem)',
-  lineHeight: LINE_HEIGHT_EM,
   color: 'oklch(94% 0.02 70)',
-  maxWidth: '60vw',
-  transition: 'transform 600ms cubic-bezier(0.4, 0, 0.6, 1)',
 }
 
-function Lines({
+function Strip({
   lines,
   activeIndex,
 }: {
   readonly lines: readonly LrcLine[]
   readonly activeIndex: number
 }) {
-  const startIdx = Math.max(0, activeIndex - 2)
-  const endIdx = Math.min(lines.length, activeIndex + 3)
-  const visibleLines = lines.slice(startIdx, endIdx)
+  // 只渲染 active ±1 (共 3 行带)
+  const prev = activeIndex > 0 ? lines[activeIndex - 1] : undefined
+  const active = lines[activeIndex]
+  const next = activeIndex < lines.length - 1 ? lines[activeIndex + 1] : undefined
 
   return (
     <div
       role="region"
       aria-live="polite"
       aria-label="歌词"
-      className="flex flex-col items-center text-center"
-      style={LINES_CONTAINER_STYLE}
+      className="flex flex-col items-center text-center gap-2"
+      style={STRIP_STYLE}
     >
-      {visibleLines.map((line, i) => (
-        <LyricLine
-          key={`${String(startIdx + i)}-${String(line.timeMs)}`}
-          text={line.text}
-          offset={startIdx + i - activeIndex}
-        />
-      ))}
+      <StripLine text={prev?.text} role="passive" />
+      <StripLine text={active?.text ?? ''} role="active" />
+      <StripLine text={next?.text} role="passive" />
     </div>
   )
 }
 
-function LyricLine({ text, offset }: { readonly text: string; readonly offset: number }) {
-  const isActive = offset === 0
-  const distance = Math.abs(offset)
-  // 透明度: active 1, ±1 0.3, ±2 0.12
-  const opacity = isActive ? 1 : distance === 1 ? 0.3 : 0.12
-  const blur = isActive ? 0 : Math.min(distance, 2)
+function StripLine({
+  text,
+  role,
+}: {
+  readonly text: string | undefined
+  readonly role: 'active' | 'passive'
+}) {
+  const isActive = role === 'active'
   return (
     <div
-      className="transition-all duration-500 ease-out"
+      className="transition-all duration-500 ease-out leading-tight"
       style={{
-        opacity,
-        filter: `blur(${String(blur)}px)`,
-        letterSpacing: isActive ? '0.05em' : '0.02em',
-        fontWeight: isActive ? 300 : 200,
-        textShadow: isActive ? '0 0 8px rgba(255,255,255,0.18)' : 'none',
+        opacity: text === undefined ? 0 : isActive ? 1 : 0.32,
+        fontSize: isActive ? 'clamp(1.1rem, 1.6vw, 1.6rem)' : 'clamp(0.85rem, 1.1vw, 1.05rem)',
+        fontWeight: isActive ? 400 : 300,
+        letterSpacing: isActive ? '0.04em' : '0.02em',
+        filter: isActive ? 'none' : 'blur(0.5px)',
+        textShadow: isActive ? '0 0 6px rgba(255,255,255,0.18)' : 'none',
+        minHeight: '1.4em',
       }}
     >
-      {text}
+      {text ?? ' '}
     </div>
   )
 }
 
-function EmptyState() {
-  return (
-    <div className="text-white/30 font-light text-lg">还没选歌</div>
-  )
+function Empty() {
+  return <div className="text-white/30 font-light text-sm">还没选歌</div>
 }
 
-function LoadingState() {
-  return (
-    <div className="text-white/40 font-light text-base animate-pulse">加载歌词中…</div>
-  )
+function Loading() {
+  return <div className="text-white/40 font-light text-sm animate-pulse">加载歌词中…</div>
 }
 
 function NoLyricFallback({ song }: { readonly song: ApiSong }) {
   return (
-    <div
-      className="text-center text-white/90 font-light"
-      style={{
-        fontFamily: '"Source Han Serif SC", "Songti SC", serif',
-        animation: 'lyric-breath-in 1.2s ease-out infinite alternate',
-      }}
-    >
-      <div style={{ fontSize: 'clamp(2rem, 3vw, 3.5rem)' }}>{song.title}</div>
-      <div className="mt-3 text-white/55" style={{ fontSize: 'clamp(1rem, 1.4vw, 1.5rem)' }}>
+    <div className="text-center text-white/85 font-light leading-tight" style={STRIP_STYLE}>
+      <div style={{ fontSize: 'clamp(1.1rem, 1.5vw, 1.5rem)' }}>{song.title}</div>
+      <div className="mt-1 text-white/45" style={{ fontSize: 'clamp(0.85rem, 1vw, 1rem)' }}>
         {song.artists.map((a) => a.name).join(' · ')}
       </div>
     </div>
