@@ -36,7 +36,7 @@ export const INITIAL_STATE: PlayerState = {
   playing: false,
   currentTimeSec: 0,
   durationSec: 0,
-  volume: 0.8,
+  volume: 0.04, // 默认极轻 — 用户原话:"默认 100 音量震聋了,4 就行"
   muted: false,
   mode: 'order',
   lrcLines: [],

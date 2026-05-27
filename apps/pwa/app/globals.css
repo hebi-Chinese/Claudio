@@ -605,6 +605,7 @@ body {
   position: fixed;
   top: 0;
   right: 0;
+  z-index: 80; /* 必须高于 dj-chat-trigger(60) / HUD(40) / ListenSill(30),否则被覆盖看不到 */
   width: min(360px, 90vw);
   height: 100vh;
   background: oklch(14% 0.015 35 / 0.96);

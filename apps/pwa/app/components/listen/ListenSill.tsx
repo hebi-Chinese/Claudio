@@ -97,13 +97,13 @@ function ListenStage(p: {
     <>
       <div
         className="fixed left-1/2 -translate-x-1/2 z-30 pointer-events-none"
-        style={{ top: 'calc(var(--win-top) + var(--win-h) + 60px)' }}
+        style={{ top: 'calc(var(--win-top) + var(--win-h) + 32px)' }}
       >
         <VinylRecord song={p.song} playing={p.playing} />
       </div>
       <div
         className="fixed left-1/2 -translate-x-1/2 z-30 w-full max-w-3xl px-6 pointer-events-none"
-        style={{ bottom: '130px' }}
+        style={{ bottom: '140px' }}
       >
         <ImmersiveLyrics
           song={p.song}
