@@ -84,7 +84,8 @@ export function ListenSill(props: Props) {
   )
 }
 
-// 下半视图主区: 唱片 (上) + 歌词带 (下)
+// 下半视图主区: 唱片 (上) + 歌词带 (底)
+// 用独立 fixed 定位避免被 flex 压扁 (vinyl 必须保持正圆)
 function ListenStage(p: {
   readonly song: ApiSong | undefined
   readonly playing: boolean
@@ -93,15 +94,17 @@ function ListenStage(p: {
   readonly activeLrcIndex: number
 }) {
   return (
-    <section
-      className="fixed left-0 right-0 z-30 flex flex-col items-center pointer-events-none"
-      style={{
-        top: 'calc(var(--win-top) + var(--win-h) + 72px)',
-        bottom: '110px',
-      }}
-    >
-      <VinylRecord song={p.song} playing={p.playing} />
-      <div className="mt-8 w-full max-w-3xl px-6">
+    <>
+      <div
+        className="fixed left-1/2 -translate-x-1/2 z-30 pointer-events-none"
+        style={{ top: 'calc(var(--win-top) + var(--win-h) + 60px)' }}
+      >
+        <VinylRecord song={p.song} playing={p.playing} />
+      </div>
+      <div
+        className="fixed left-1/2 -translate-x-1/2 z-30 w-full max-w-3xl px-6 pointer-events-none"
+        style={{ bottom: '130px' }}
+      >
         <ImmersiveLyrics
           song={p.song}
           lines={p.lrcLines}
@@ -109,7 +112,7 @@ function ListenStage(p: {
           activeIndex={p.activeLrcIndex}
         />
       </div>
-    </section>
+    </>
   )
 }
 

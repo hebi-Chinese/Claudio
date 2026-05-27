@@ -19,6 +19,7 @@ import { RoomScene } from '../room/RoomScene'
 import { SettingsPanel } from '../settings/SettingsPanel'
 import { useLanguage } from '../settings/useLanguage'
 
+import { useAudioUnlock } from './useAudioUnlock'
 import { usePlayerLogic } from './usePlayerLogic'
 import { useViewMode } from './useViewMode'
 
@@ -36,6 +37,7 @@ export function Player() {
   const [weather, setWeather] = useState<Weather>('rain')
   const trackMeta = useTrackMeta(logic.currentSong)
   useDataModeSync(view.mode)
+  useAudioUnlock(logic.audioRef)
 
   const playAndListen = useCallback(
     (song: ApiSong) => {
