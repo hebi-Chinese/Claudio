@@ -113,15 +113,17 @@ function OuterRim() {
 }
 
 function CenterLabel({ song }: { readonly song: ApiSong | undefined }) {
+  // 中心 = 一张 38% 的封面圆。去掉之前的黑边框 (用户嫌"意义不明的黑环"),
+  // 只留极薄外阴影和最外圈的暖光环,让封面和唱片之间有过渡但不抢戏
   return (
     <div
       className="absolute top-1/2 left-1/2 rounded-full overflow-hidden"
       style={{
-        width: '34%',
-        height: '34%',
+        width: '38%',
+        height: '38%',
         transform: 'translate(-50%, -50%)',
         boxShadow:
-          'inset 0 0 0 1.5px oklch(82% 0.1 75 / 0.5), inset 0 0 0 3px oklch(8% 0 0), 0 0 22px oklch(0% 0 0 / 0.6), 0 0 0 1px oklch(82% 0.1 75 / 0.2)',
+          '0 0 0 1px oklch(8% 0 0 / 0.5), 0 0 0 2px oklch(82% 0.08 70 / 0.18), 0 8px 20px oklch(0% 0 0 / 0.55)',
         background: 'oklch(20% 0.04 50)',
       }}
     >

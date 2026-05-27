@@ -41,7 +41,7 @@ type Ripple = {
 
 // ─── 物理 / 视觉常量 ──────────────────────────────────────────────────────
 
-const DROPS_PER_1000PX = 0.35 // 每 1000 px² 一滴 → 1920×1080 ≈ 720 滴
+const DROPS_PER_1000PX = 0.16 // 每 1000 px² 一滴 → 1920×1080 ≈ 330 滴 (从 0.35 调低保 60fps)
 const LAYER_SPEEDS: readonly [number, number, number] = [200, 420, 700] // px/s
 const LAYER_LENS: readonly [number, number, number] = [8, 14, 22]
 const LAYER_ALPHAS: readonly [number, number, number] = [0.35, 0.55, 0.85]
@@ -53,8 +53,8 @@ const WIND_POINTER_GAIN = 0.4 // 鼠标 x 偏移对风向影响
 const GLASS_TOP_RATIO = 0.18 // 上方 18% 是 hero 区,droplet 不生成
 const GLASS_DROPLET_MIN_R = 2.0
 const GLASS_DROPLET_MAX_R = 6.0
-const GLASS_SPAWN_RATE = 18 // 每秒生成 droplet 数 (整屏)
-const GLASS_DROPLET_LIMIT = 40
+const GLASS_SPAWN_RATE = 8 // 每秒生成 droplet 数 (从 18 调低)
+const GLASS_DROPLET_LIMIT = 18 // 从 40 调低,gradient 创建是大头
 const GLASS_GRAVITY_THRESHOLD = 4.5 // r 大于此才开始下滑
 const GLASS_GRAVITY = 280 // px/s² (slow,粘在玻璃上)
 const GLASS_MERGE_DIST = 1.5 // 中心距 < (rA + rB) * 此倍数时合并

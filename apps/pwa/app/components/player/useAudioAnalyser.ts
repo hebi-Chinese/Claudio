@@ -1,116 +1,101 @@
-// useAudioAnalyser · 把 <audio> ref 接到 Web Audio AnalyserNode
-// 返回平滑后的 48 bar 频率数据 (log-scale 抽样)
+// useAudioAnalyser · 把 <audio> ref 接到共享 AudioContext 的 AnalyserNode
+// 返回 ref-based bars 数据,VizBars 自己 rAF 读写 DOM,**不走 React state** (帧率太高会炸)
 //
-// 关键约束: createMediaElementSource 会**夺走** audio 元素的默认输出,
-// 此后声音必须经过 audioCtx 图才能播。一旦 ctx 是 suspended (Chrome
-// autoplay policy 常态),声音就**完全没了**。所以:
-// 1) 创建后立即 ctx.resume(),失败就不接 analyser 让 audio 走默认路径
-// 2) 失败 / 取不到时, bars 为 null,组件 fallback 静态呼吸,**优先保声音**
+// 关键约束:
+//   createMediaElementSource 把 audio 输出**永久**路由到 ctx.destination。
+//   如果 ctx 是 suspended,即使 audio.paused=false 也没声音。
+//   所以: 必须复用 sharedAudioCtx (unlock 已经在 gesture 内 resume 过的那个),
+//   并且**只有 ctx 已 running 时才 attach**;否则放弃可视化保住声音。
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
+
+import { getSharedAudioCtx, isSharedAudioCtxRunning } from './sharedAudioCtx'
 
 const FFT_SIZE = 256
 const USED_BINS = 64
 const BAR_COUNT = 48
 const SMOOTHING = 0.7
 
-type State = {
-  readonly bars: readonly number[] | null
-  readonly active: boolean
+export type BarsRef = { current: Float32Array }
+
+export type AnalyserHandle = {
+  readonly barsRef: BarsRef
+  readonly isActive: () => boolean
 }
 
-type AnalyserRefs = {
-  readonly mounted: { current: boolean }
-  readonly analyser: { current: AnalyserNode | null }
-  readonly smoothed: { current: Float32Array }
-  readonly raf: { current: number }
-}
+// 已 attach 过的 audio 集合 — createMediaElementSource 一个 audio 元素只能调一次
+const attachedAudios = new WeakSet<HTMLAudioElement>()
+let sharedAnalyser: AnalyserNode | null = null
 
-export function useAudioAnalyser(audioRef: React.RefObject<HTMLAudioElement | null>): State {
-  const [bars, setBars] = useState<readonly number[] | null>(null)
-  const [active, setActive] = useState(false)
-  const refs: AnalyserRefs = {
-    mounted: useRef(false),
-    analyser: useRef<AnalyserNode | null>(null),
-    smoothed: useRef<Float32Array>(new Float32Array(BAR_COUNT)),
-    raf: useRef(0),
-  }
+export function useAudioAnalyser(audioRef: React.RefObject<HTMLAudioElement | null>): AnalyserHandle {
+  const barsRef = useRef<Float32Array>(new Float32Array(BAR_COUNT))
+  const activeRef = useRef(false)
 
   useEffect(() => {
     const audio = audioRef.current
-    if (audio === null) return
-    const attach = (): void => {
-      void tryAttach(audio, refs, setActive, setBars)
+    if (audio === null) return undefined
+
+    const tryAttach = (): void => {
+      if (!isSharedAudioCtxRunning()) return
+      const ctx = getSharedAudioCtx()
+      if (ctx === null) return
+      if (sharedAnalyser === null) {
+        sharedAnalyser = ctx.createAnalyser()
+        sharedAnalyser.fftSize = FFT_SIZE
+        sharedAnalyser.connect(ctx.destination)
+      }
+      if (!attachedAudios.has(audio)) {
+        try {
+          const source = ctx.createMediaElementSource(audio)
+          source.connect(sharedAnalyser)
+          attachedAudios.add(audio)
+        } catch {
+          // 已 attach 过会抛 — 忽略
+          return
+        }
+      }
+      activeRef.current = true
+      startLoop(sharedAnalyser, barsRef)
     }
-    audio.addEventListener('play', attach)
-    if (!audio.paused) attach()
+
+    const onPlay = (): void => {
+      tryAttach()
+    }
+    audio.addEventListener('play', onPlay)
+    if (!audio.paused) tryAttach()
+
     return () => {
-      cancelAnimationFrame(refs.raf.current)
-      audio.removeEventListener('play', attach)
+      audio.removeEventListener('play', onPlay)
     }
-  }, [audioRef, refs])
+  }, [audioRef])
 
-  return { bars, active }
-}
-
-async function tryAttach(
-  audio: HTMLAudioElement,
-  refs: AnalyserRefs,
-  setActive: (v: boolean) => void,
-  setBars: (v: readonly number[]) => void,
-): Promise<void> {
-  if (refs.mounted.current) return
-  refs.mounted.current = true
-  try {
-    const ctx = new AudioContext()
-    // 必须 resume,否则 ctx 是 suspended 状态、整条 graph 静默,等于劫持了 audio
-    if (ctx.state === 'suspended') {
-      await ctx.resume()
-    }
-    const source = ctx.createMediaElementSource(audio)
-    const analyser = ctx.createAnalyser()
-    analyser.fftSize = FFT_SIZE
-    source.connect(analyser)
-    analyser.connect(ctx.destination)
-    refs.analyser.current = analyser
-    setActive(true)
-    startLoop(refs, setBars)
-  } catch {
-    // resume 失败 / createMediaElementSource 失败 → 不接,audio 自己播,viz 走 fallback
-    refs.mounted.current = false
-    setActive(false)
+  return {
+    barsRef,
+    isActive: () => activeRef.current,
   }
 }
 
-function startLoop(refs: AnalyserRefs, setBars: (v: readonly number[]) => void): void {
-  const analyser = refs.analyser.current
-  if (analyser === null) return
+let activeRaf = 0
+
+function startLoop(analyser: AnalyserNode, barsRef: BarsRef): void {
+  cancelAnimationFrame(activeRaf)
   const freqData = new Uint8Array(analyser.frequencyBinCount)
+  const next = new Float32Array(BAR_COUNT)
   const tick = (): void => {
     analyser.getByteFrequencyData(freqData)
-    const sampled = sampleLogScale(freqData)
-    const smoothed = refs.smoothed.current
-    const next = new Array<number>(BAR_COUNT)
+    const smoothed = barsRef.current
     for (let i = 0; i < BAR_COUNT; i++) {
+      const t = i / (BAR_COUNT - 1)
+      const binIndex = Math.round(Math.pow(2, t * Math.log2(USED_BINS + 1)) - 1)
+      const clamped = Math.min(USED_BINS - 1, Math.max(0, binIndex))
+      const raw = freqData[clamped] ?? 0
       const prev = smoothed[i] ?? 0
-      const v = sampled[i] ?? 0
-      const s = prev * SMOOTHING + v * (1 - SMOOTHING)
-      smoothed[i] = s
-      next[i] = s
+      next[i] = prev * SMOOTHING + raw * (1 - SMOOTHING)
     }
-    setBars(next)
-    refs.raf.current = requestAnimationFrame(tick)
+    barsRef.current.set(next)
+    activeRaf = requestAnimationFrame(tick)
   }
-  refs.raf.current = requestAnimationFrame(tick)
+  activeRaf = requestAnimationFrame(tick)
 }
 
-function sampleLogScale(freqData: Uint8Array): number[] {
-  const result = new Array<number>(BAR_COUNT)
-  for (let i = 0; i < BAR_COUNT; i++) {
-    const t = i / (BAR_COUNT - 1)
-    const binIndex = Math.round(Math.pow(2, t * Math.log2(USED_BINS + 1)) - 1)
-    const clamped = Math.min(USED_BINS - 1, Math.max(0, binIndex))
-    result[i] = freqData[clamped] ?? 0
-  }
-  return result
-}
+export { BAR_COUNT }
