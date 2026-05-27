@@ -101,14 +101,7 @@ function PanelBody({
           </Pill>
         ))}
       </Group>
-      <Group label={t('settingsTheme')}>
-        <Pill active>{t('themeDark')}</Pill>
-        <Pill disabled>{t('themeLight')}</Pill>
-      </Group>
-      <Group label={t('settingsFont')}>
-        <Pill active>{t('fontSerif')}</Pill>
-        <Pill disabled>{t('fontSans')}</Pill>
-      </Group>
+      {/* Theme / Font 未实现,先不渲染,免得用户点 disabled 以为 "设置无效" */}
     </>
   )
 }

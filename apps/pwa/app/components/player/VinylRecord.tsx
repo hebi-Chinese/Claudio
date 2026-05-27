@@ -1,14 +1,10 @@
 'use client'
 
-// VinylRecord · Listen 模式视觉主角 — 真旋转的黑胶唱片
-// 必须正圆 (width === height + aspect-ratio),否则会看起来像跑道
-// 尺寸同时受 vw 和 vh 约束,避免被父 flex 压扁
-// 视觉层次 (内到外):
-//   - 中心轴钉 (gold spindle)
-//   - 中心标签 (NCM 封面 + 一圈奶油色外框)
-//   - 唱片本体 (深黑径向 + 32 道细 grooves + 表面斜向高光)
-//   - 外缘暗边
-// 切歌时旧封面 rotate+fade out,新封面 spring 弹回 (key 变化触发)
+// VinylRecord · 视觉重设计
+// 旧版: 大黑唱片 + 38% 中心小封面 — 用户嫌"一坨黑,封面太小"
+// 新版: 封面占 68% 大头,黑色只剩 16% 薄外圈,grooves 只画在外圈
+//      整体观感是"一张大封面,边缘镶黑胶质感",不是"黑胶里塞个小标签"
+// 必须正圆 (aspect-ratio + width/height + 32vh 上限),否则像跑道
 
 import { useEffect, useState } from 'react'
 
@@ -19,8 +15,7 @@ type Props = {
   readonly playing: boolean
 }
 
-// 同时受 32vh 约束,防止被父容器压
-const SIZE = 'min(clamp(240px, 30vw, 380px), 32vh)'
+const SIZE = 'min(clamp(260px, 32vw, 420px), 36vh)'
 
 export function VinylRecord({ song, playing }: Props) {
   const enterKey = useEnterKey(song?.id)
@@ -29,7 +24,7 @@ export function VinylRecord({ song, playing }: Props) {
       aria-label={
         song !== undefined
           ? `正在播放: ${song.title} · ${song.artists.map((a) => a.name).join(', ')}`
-          : '唱片机'
+          : '唱片'
       }
       role="img"
       className="relative flex-shrink-0"
@@ -40,24 +35,21 @@ export function VinylRecord({ song, playing }: Props) {
         className="absolute inset-0 rounded-full enter-vinyl"
         style={{
           background:
-            'radial-gradient(circle at 50% 50%, oklch(8% 0 0) 0%, oklch(5% 0 0) 60%, oklch(3% 0 0) 100%)',
+            'radial-gradient(circle at 50% 50%, oklch(10% 0 0) 0%, oklch(6% 0 0) 70%, oklch(3% 0 0) 100%)',
           boxShadow:
-            '0 0 80px oklch(82% 0.13 75 / 0.12), 0 28px 56px rgba(0,0,0,0.65), inset 0 0 0 2px oklch(8% 0 0), inset 0 0 0 3px oklch(20% 0.02 30 / 0.4)',
+            '0 0 60px oklch(82% 0.13 75 / 0.1), 0 24px 48px rgba(0,0,0,0.6)',
           animationPlayState: playing ? 'running' : 'paused',
         }}
       >
-        <Grooves />
-        <OuterRim />
-        <CenterLabel song={song} />
+        <OuterGrooves />
+        <CoverArt song={song} />
         <Spindle />
       </div>
-      <DiagonalGloss />
-      <CircularHighlight />
+      <Highlight />
     </div>
   )
 }
 
-// song.id 变化触发入场动画
 function useEnterKey(id: string | undefined): string {
   const [key, setKey] = useState(id ?? 'empty')
   useEffect(() => {
@@ -66,8 +58,8 @@ function useEnterKey(id: string | undefined): string {
   return key
 }
 
-// 32 道更密 + 更细 grooves,半径从 14 (中心标签外) 到 48 (边缘附近)
-function Grooves() {
+// grooves 只画在外圈薄环里 (r 34 → 48,封面占 68%),不再侵占中心
+function OuterGrooves() {
   return (
     <svg
       className="absolute inset-0 w-full h-full pointer-events-none"
@@ -75,13 +67,9 @@ function Grooves() {
       preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"
     >
-      {Array.from({ length: 32 }, (_, i) => {
-        const r = 18 + i * 0.95 // 18 → 47.45
-        // 每 4 道里有一道稍亮,模拟分段
-        const isAccent = i % 4 === 0
-        const stroke = isAccent ? 'oklch(28% 0.01 50)' : 'oklch(20% 0 0)'
-        const sw = isAccent ? 0.18 : 0.08
-        const op = 0.35 + Math.sin(i * 0.4) * 0.1
+      {Array.from({ length: 14 }, (_, i) => {
+        const r = 34.5 + i * 0.95
+        const isAccent = i % 3 === 0
         return (
           <circle
             key={i}
@@ -89,9 +77,9 @@ function Grooves() {
             cy="50"
             r={r}
             fill="none"
-            stroke={stroke}
-            strokeWidth={sw}
-            opacity={op}
+            stroke={isAccent ? 'oklch(28% 0.01 50)' : 'oklch(20% 0 0)'}
+            strokeWidth={isAccent ? 0.15 : 0.06}
+            opacity={0.45 - i * 0.015}
           />
         )
       })}
@@ -99,38 +87,24 @@ function Grooves() {
   )
 }
 
-function OuterRim() {
-  return (
-    <div
-      className="absolute inset-0 rounded-full pointer-events-none"
-      style={{
-        boxShadow:
-          'inset 0 0 0 2px oklch(3% 0 0), inset 0 0 8px oklch(5% 0 0 / 0.8), inset 0 0 0 3px oklch(18% 0.02 30 / 0.35)',
-      }}
-      aria-hidden="true"
-    />
-  )
-}
-
-function CenterLabel({ song }: { readonly song: ApiSong | undefined }) {
-  // 中心 = 一张 38% 的封面圆。去掉之前的黑边框 (用户嫌"意义不明的黑环"),
-  // 只留极薄外阴影和最外圈的暖光环,让封面和唱片之间有过渡但不抢戏
+// 封面占 68% 直径 — 视觉主角
+function CoverArt({ song }: { readonly song: ApiSong | undefined }) {
   return (
     <div
       className="absolute top-1/2 left-1/2 rounded-full overflow-hidden"
       style={{
-        width: '38%',
-        height: '38%',
+        width: '68%',
+        height: '68%',
         transform: 'translate(-50%, -50%)',
         boxShadow:
-          '0 0 0 1px oklch(8% 0 0 / 0.5), 0 0 0 2px oklch(82% 0.08 70 / 0.18), 0 8px 20px oklch(0% 0 0 / 0.55)',
+          '0 0 0 1px oklch(8% 0 0 / 0.7), 0 0 0 2px oklch(82% 0.08 70 / 0.18), 0 6px 16px oklch(0% 0 0 / 0.5)',
         background: 'oklch(20% 0.04 50)',
       }}
     >
       {song?.coverUrl !== undefined ? (
         <img src={song.coverUrl} alt="" className="w-full h-full object-cover" />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-white/30 text-2xl font-light">
+        <div className="w-full h-full flex items-center justify-center text-white/30 text-3xl font-light">
           ○
         </div>
       )}
@@ -143,40 +117,27 @@ function Spindle() {
     <div
       className="absolute top-1/2 left-1/2 rounded-full"
       style={{
-        width: 10,
-        height: 10,
+        width: 9,
+        height: 9,
         transform: 'translate(-50%, -50%)',
         background:
-          'radial-gradient(circle at 30% 30%, oklch(92% 0.1 75) 0%, oklch(70% 0.13 65) 50%, oklch(40% 0.08 55) 100%)',
-        boxShadow: '0 0 6px rgba(0,0,0,0.9), inset 0 0 2px oklch(20% 0.04 40), 0 0 0 1px oklch(35% 0.06 50)',
+          'radial-gradient(circle at 30% 30%, oklch(92% 0.1 75) 0%, oklch(70% 0.13 65) 55%, oklch(40% 0.08 55) 100%)',
+        boxShadow:
+          '0 0 5px rgba(0,0,0,0.9), inset 0 0 1px oklch(20% 0.04 40), 0 0 0 1px oklch(35% 0.06 50)',
       }}
       aria-hidden="true"
     />
   )
 }
 
-// 斜向高光: 整张唱片有一道斜光 (不旋转,叠在静态层上)
-function DiagonalGloss() {
+// 整张唱片表面的环境光高光,在外圈黑环上滚一道反光
+function Highlight() {
   return (
     <div
       className="absolute inset-0 rounded-full pointer-events-none"
       style={{
         background:
-          'linear-gradient(115deg, transparent 30%, oklch(95% 0.01 100 / 0.06) 45%, oklch(95% 0.01 100 / 0.1) 50%, oklch(95% 0.01 100 / 0.04) 56%, transparent 70%)',
-      }}
-      aria-hidden="true"
-    />
-  )
-}
-
-// 圆形高光: 左上角一片更亮的反光,模拟环境光
-function CircularHighlight() {
-  return (
-    <div
-      className="absolute inset-0 rounded-full pointer-events-none"
-      style={{
-        background:
-          'radial-gradient(ellipse at 28% 22%, oklch(95% 0.01 100 / 0.08) 0%, transparent 35%)',
+          'radial-gradient(ellipse at 28% 22%, oklch(95% 0.01 100 / 0.08) 0%, transparent 35%), linear-gradient(115deg, transparent 35%, oklch(95% 0.01 100 / 0.04) 50%, transparent 65%)',
       }}
       aria-hidden="true"
     />

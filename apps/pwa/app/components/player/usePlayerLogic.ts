@@ -6,7 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, type ApiSong } from '../../lib/api'
 import { findActiveLineIndex, parseLrc } from '../../lib/lrc'
 
-import { describeError, INITIAL_STATE, PLAY_MODES, type PlayMode, type PlayerState } from './types'
+import { loadInitialState, persist } from './playerStorage'
+import { describeError, PLAY_MODES, type PlayMode, type PlayerState } from './types'
 
 type SetState = React.Dispatch<React.SetStateAction<PlayerState>>
 type AudioRef = React.RefObject<HTMLAudioElement | null>
@@ -39,7 +40,9 @@ export type PlayerLogic = {
 
 export function usePlayerLogic(): PlayerLogic {
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  const [state, setState] = useState<PlayerState>(INITIAL_STATE)
+  // SSR 安全: 服务端拿不到 localStorage,hydrate 时 INITIAL_STATE;客户端 mount 后 effect 再合并
+  const [state, setState] = useState<PlayerState>(loadInitialState)
+  usePersistState(state)
 
   const currentSong = useMemo<ApiSong | undefined>(
     () => (state.currentIndex >= 0 ? state.queue[state.currentIndex] : undefined),
@@ -65,6 +68,15 @@ export function usePlayerLogic(): PlayerLogic {
 
 // ────────────────────────────────────────────────────────────────────────
 // effects
+
+// queue / mode / volume / muted 变化时写 localStorage
+// 故意不 dep 整个 state — 每帧 currentTime tick 不该写盘
+function usePersistState(state: PlayerState): void {
+  const { queue, mode, volume, muted } = state
+  useEffect(() => {
+    persist({ queue, mode, volume, muted })
+  }, [queue, mode, volume, muted])
+}
 
 function useTrackLoader(currentSong: ApiSong | undefined, setState: SetState): void {
   useEffect(() => {
@@ -110,17 +122,18 @@ type AudioSourceSyncOptions = {
 
 function useAudioSourceSync(opts: AudioSourceSyncOptions): void {
   const { audioRef, audioUrl, muted, volume, setState } = opts
-  // 故意只用 audioUrl 触发: 切歌才 play(),volume/mute 由别的回调直接改 audio.volume
-  const targetVolume = muted ? 0 : volume
+  // 切歌 (audioUrl 变) 才重设 src + play()。
+  // 音量/静音由 setVolume/toggleMute action 直接改 audio.volume,**不能进 dep**,
+  // 否则 volume 一变就会 audio.src=audioUrl → 当前歌从头播 (用户痛点)。
   useEffect(() => {
     const audio = audioRef.current
     if (audio === null || audioUrl === undefined) return
     audio.src = audioUrl
-    audio.volume = targetVolume
+    audio.volume = muted ? 0 : volume
     audio.play().catch((err: unknown) => {
       setState((s) => ({ ...s, error: `播放失败: ${describeError(err)}`, playing: false }))
     })
-  }, [audioUrl, audioRef, setState, targetVolume])
+  }, [audioUrl, audioRef, setState])
 }
 
 // ────────────────────────────────────────────────────────────────────────
