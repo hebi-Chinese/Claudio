@@ -53,8 +53,10 @@ function applyBrowseVars(v: BrowseVars): void {
 }
 
 function handleAdjustKey(e: KeyboardEvent, v: BrowseVars): boolean {
-  const moveStep = e.shiftKey ? 1 : 0.2
-  const sizeStep = e.shiftKey ? 0.5 : 0.1
+  // step 单位是 vw/vh 的 %, weather canvas 占视口 60% 宽, 用 vinyl 的 0.1
+  // 步长每次只动 ~1px 肉眼无感; bump 到 1.0 默认 / 3.0 shift
+  const moveStep = e.shiftKey ? 3 : 1
+  const sizeStep = e.shiftKey ? 3 : 1
   if (handleMoveKey(e.key, v, moveStep)) return true
   if (handleSizeKey(e.key, v, sizeStep)) return true
   if (e.key === 'p' || e.key === 'P') {

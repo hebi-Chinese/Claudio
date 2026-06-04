@@ -64,7 +64,8 @@ export function SceneStage(props: Props) {
     lang: props.language.lang,
   })
   const [chatOpen, setChatOpen] = useState(false)
-  const adjustingLw = useListenWeatherAdjuster()
+  // useListenWeatherAdjuster 已提到 Player.tsx 顶层 — Browse 时也能激活,
+  // 用户进 Listen 后看到 canvas 已是新坐标
   return (
     <>
       <SceneBackdrop weather={props.weather} />
@@ -94,7 +95,6 @@ export function SceneStage(props: Props) {
         }}
       />
       <SceneDjChat open={chatOpen} setOpen={setChatOpen} p={props} />
-      {adjustingLw ? <ListenWeatherAdjustHud /> : null}
     </>
   )
 }
@@ -309,7 +309,9 @@ function VinylAdjustHud() {
 type LWVars = { left: number; top: number; w: number; h: number }
 const LW_DEFAULT: LWVars = { left: 3, top: 0, w: 52, h: 65 }
 
-function useListenWeatherAdjuster(): boolean {
+// 注: 由 Player.tsx 调用 — Browse / Listen 都激活;
+// canvas .scene-weather-canvas 只在 Listen 模式下挂载, 但 CSS var 全局生效
+export function useListenWeatherAdjuster(): boolean {
   const [on, setOn] = useState(false)
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -343,8 +345,9 @@ function applyLwVars(v: LWVars): void {
 }
 
 function handleLwKey(e: KeyboardEvent, v: LWVars): boolean {
-  const moveStep = e.shiftKey ? 1 : 0.2
-  const sizeStep = e.shiftKey ? 0.5 : 0.1
+  // 跟 useBrowseAdjuster 同理 — weather canvas 占视口比例大, step 默认 1%
+  const moveStep = e.shiftKey ? 3 : 1
+  const sizeStep = e.shiftKey ? 3 : 1
   if (handleMoveKey(e.key, v, moveStep)) return true
   if (handleLwSizeKey(e.key, v, sizeStep)) return true
   if (e.key === 'p' || e.key === 'P') {
@@ -381,7 +384,7 @@ function printLwVars(v: LWVars): void {
   window.alert(css)
 }
 
-function ListenWeatherAdjustHud() {
+export function ListenWeatherAdjustHud() {
   return (
     <div className="adjust-hud" aria-hidden="true">
       <div>
