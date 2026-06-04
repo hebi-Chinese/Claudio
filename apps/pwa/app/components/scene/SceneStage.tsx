@@ -285,7 +285,7 @@ function printVinylVars(vars: VinylVars): void {
 
 function VinylAdjustHud() {
   return (
-    <div className="scene-vinyl-adjust-hud" aria-hidden="true">
+    <div className="adjust-hud" aria-hidden="true">
       <div>
         vinyl adjust · <kbd>arrows</kbd> move · <kbd>+/-</kbd> scale · <kbd>[/]</kbd> width ·{' '}
         <kbd>,/.</kbd> height · <kbd>shift</kbd> = big step · <kbd>P</kbd> print

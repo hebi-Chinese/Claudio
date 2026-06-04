@@ -968,15 +968,20 @@ nextjs-portal {
   overflow: hidden;
 }
 
-/* Browse 天气粒子 — search-bg.png 里窗户大致位置 (待 ?adjust=browse 调) */
+/* Browse 天气粒子 — search-bg.png 里窗户区域, 默认值是目测起点;
+   ?adjust=browse 时键盘可实时拖, 主人定数后烧进这里 */
 .browse-weather-canvas {
   position: fixed;
-  left: 20%;
-  top: 5%;
-  width: 60%;
-  height: 45%;
+  left: var(--browse-weather-left, 20%);
+  top: var(--browse-weather-top, 5%);
+  width: var(--browse-weather-w, 60%);
+  height: var(--browse-weather-h, 45%);
   pointer-events: none;
   z-index: 3;
+}
+[data-adjust-mode='browse'] .browse-weather-canvas {
+  outline: 2px dashed #ff3060;
+  outline-offset: -1px;
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -1336,7 +1341,8 @@ nextjs-portal {
   outline: 2px dashed #ff3060;
   outline-offset: -1px;
 }
-.scene-vinyl-adjust-hud {
+/* 共享的 ?adjust=* 调试 HUD — 顶部居中黄色字条, vinyl/browse/listen 都用同一个 */
+.adjust-hud {
   position: fixed;
   top: 12px;
   left: 50%;
@@ -1351,7 +1357,7 @@ nextjs-portal {
   line-height: 1.5;
   border: 1px solid rgba(255, 208, 96, 0.4);
 }
-.scene-vinyl-adjust-hud kbd {
+.adjust-hud kbd {
   display: inline-block;
   padding: 0 4px;
   margin: 0 2px;

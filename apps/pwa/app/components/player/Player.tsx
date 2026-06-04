@@ -11,7 +11,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { AtmosphereCanvas } from '../atmosphere/AtmosphereCanvas'
+import { BrowseAdjustHud } from '../browse/BrowseAdjustHud'
 import { BrowseSill } from '../browse/BrowseSill'
+import { useBrowseAdjuster } from '../browse/useBrowseAdjuster'
 import { CommandPalette } from '../command/CommandPalette'
 import { useCommandPalette } from '../command/useCommandPalette'
 import { WindowToggle } from '../room/WindowToggle'
@@ -106,12 +108,14 @@ function ListenStageView({ p }: { readonly p: ShellProps }) {
 // browse 模式 — 正面电台场景 (search-bg.png) + 天气粒子 + PlayerShell (顶栏/搜索/设置)
 function BrowseStageView({ p }: { readonly p: ShellProps }) {
   const showWeather = p.weather === 'rain' || p.weather === 'snow'
+  const adjusting = useBrowseAdjuster()
   return (
     <div className="browse-scene-bg">
       {showWeather ? (
         <AtmosphereCanvas weather={p.weather} className="browse-weather-canvas" />
       ) : null}
       <PlayerShell {...p} />
+      {adjusting ? <BrowseAdjustHud /> : null}
     </div>
   )
 }
