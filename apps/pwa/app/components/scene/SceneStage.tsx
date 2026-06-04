@@ -64,6 +64,7 @@ export function SceneStage(props: Props) {
     lang: props.language.lang,
   })
   const [chatOpen, setChatOpen] = useState(false)
+  const adjustingLw = useListenWeatherAdjuster()
   return (
     <>
       <SceneBackdrop weather={props.weather} />
@@ -93,6 +94,7 @@ export function SceneStage(props: Props) {
         }}
       />
       <SceneDjChat open={chatOpen} setOpen={setChatOpen} p={props} />
+      {adjustingLw ? <ListenWeatherAdjustHud /> : null}
     </>
   )
 }
@@ -221,7 +223,8 @@ function handleAdjustKey(e: KeyboardEvent, vars: VinylVars): boolean {
   return false
 }
 
-function handleMoveKey(key: string, vars: VinylVars, step: number): boolean {
+// 共享给 vinyl + listen-weather 调试模式 — 只动 left/top, 结构化兼容多种 vars
+function handleMoveKey(key: string, vars: { left: number; top: number }, step: number): boolean {
   switch (key) {
     case 'ArrowLeft':
       vars.left -= step
@@ -289,6 +292,101 @@ function VinylAdjustHud() {
       <div>
         vinyl adjust · <kbd>arrows</kbd> move · <kbd>+/-</kbd> scale · <kbd>[/]</kbd> width ·{' '}
         <kbd>,/.</kbd> height · <kbd>shift</kbd> = big step · <kbd>P</kbd> print
+      </div>
+    </div>
+  )
+}
+
+// ─── ?adjust=listen 调试模式 (Listen 模式的天气 canvas 矩形) ─────────────
+// 触发: URL 加 ?adjust=listen
+// 操作:
+//   方向键      移位 (Shift = 大步 1%, 默认 0.2%)
+//   + / -       同比缩放
+//   [ / ]       只调宽
+//   , / .       只调高
+//   P           console.log + alert 当前 CSS
+
+type LWVars = { left: number; top: number; w: number; h: number }
+const LW_DEFAULT: LWVars = { left: 3, top: 0, w: 52, h: 65 }
+
+function useListenWeatherAdjuster(): boolean {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const enabled = new URLSearchParams(window.location.search).get('adjust') === 'listen'
+    if (!enabled) return
+    setOn(true)
+    const vars: LWVars = { ...LW_DEFAULT }
+    const onKey = (e: KeyboardEvent): void => {
+      if (handleLwKey(e, vars)) {
+        e.preventDefault()
+        applyLwVars(vars)
+      }
+    }
+    applyLwVars(vars)
+    document.documentElement.setAttribute('data-adjust-mode', 'listen')
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.documentElement.removeAttribute('data-adjust-mode')
+    }
+  }, [])
+  return on
+}
+
+function applyLwVars(v: LWVars): void {
+  const r = document.documentElement
+  r.style.setProperty('--listen-weather-left', `${v.left.toFixed(2)}%`)
+  r.style.setProperty('--listen-weather-top', `${v.top.toFixed(2)}%`)
+  r.style.setProperty('--listen-weather-w', `${v.w.toFixed(2)}%`)
+  r.style.setProperty('--listen-weather-h', `${v.h.toFixed(2)}%`)
+}
+
+function handleLwKey(e: KeyboardEvent, v: LWVars): boolean {
+  const moveStep = e.shiftKey ? 1 : 0.2
+  const sizeStep = e.shiftKey ? 0.5 : 0.1
+  if (handleMoveKey(e.key, v, moveStep)) return true
+  if (handleLwSizeKey(e.key, v, sizeStep)) return true
+  if (e.key === 'p' || e.key === 'P') {
+    printLwVars(v)
+    return true
+  }
+  return false
+}
+
+function handleLwSizeKey(key: string, v: LWVars, step: number): boolean {
+  const z = zoomDelta(key)
+  if (z !== 0) {
+    v.w += step * z
+    v.h += step * z
+    return true
+  }
+  const wd = widthDelta(key)
+  if (wd !== 0) {
+    v.w += step * wd
+    return true
+  }
+  const hd = heightDelta(key)
+  if (hd !== 0) {
+    v.h += step * hd
+    return true
+  }
+  return false
+}
+
+function printLwVars(v: LWVars): void {
+  const css = `--listen-weather-left: ${v.left.toFixed(1)}%; --listen-weather-top: ${v.top.toFixed(1)}%; --listen-weather-w: ${v.w.toFixed(1)}%; --listen-weather-h: ${v.h.toFixed(1)}%;`
+  // eslint-disable-next-line no-console -- intentional: dev adjust mode
+  console.log('[listen-weather-adjust]', css)
+  window.alert(css)
+}
+
+function ListenWeatherAdjustHud() {
+  return (
+    <div className="adjust-hud" aria-hidden="true">
+      <div>
+        listen-weather adjust · <kbd>arrows</kbd> move · <kbd>+/-</kbd> scale · <kbd>[/]</kbd> width
+        · <kbd>,/.</kbd> height · <kbd>shift</kbd> = big step · <kbd>P</kbd> print
       </div>
     </div>
   )

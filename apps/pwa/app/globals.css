@@ -1020,15 +1020,20 @@ nextjs-portal {
 }
 
 /* Canvas 粒子层 — 跟 .scene-window 同矩形位置, 不裁形状 (粒子在矩形内充满)
-   屋内位置由 .scene-foreground 在更高 z-index 用反向 mask 遮挡 */
+   屋内位置由 .scene-foreground 在更高 z-index 用反向 mask 遮挡
+   ?adjust=listen 时键盘可实时拖, 主人定数后烧进这里 */
 .scene-weather-canvas {
   position: fixed;
-  left: 3%;
-  top: 0;
-  width: 52%;
-  height: 65%;
+  left: var(--listen-weather-left, 3%);
+  top: var(--listen-weather-top, 0);
+  width: var(--listen-weather-w, 52%);
+  height: var(--listen-weather-h, 65%);
   z-index: 3;
   pointer-events: none;
+}
+[data-adjust-mode='listen'] .scene-weather-canvas {
+  outline: 2px dashed #ff3060;
+  outline-offset: -1px;
 }
 
 /* 前景遮罩层 — 复用 listen-bg.png 同图, 但反向 mask 把窗户区域抠透明
