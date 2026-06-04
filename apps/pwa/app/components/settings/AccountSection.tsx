@@ -23,6 +23,9 @@ export function AccountSection({ language }: Props) {
   )
 }
 
+/* eslint-disable-next-line max-lines-per-function --
+   8-state UI dispatch (fetching/pending/scanned/success/expired/error/idle-in/idle-out),
+   每个 case 都是 4-6 行的 JSX 分支, 拆 dispatch 表只会把 JSX 推一层 */
 function Body({
   login,
   language,

@@ -28,6 +28,8 @@ export function SceneWindow({ weather }: { readonly weather: Weather }) {
 
 type ChimeProps = { readonly variant: 'c1' | 'c2' | 'c3'; readonly w: number; readonly h: number }
 
+/* eslint-disable-next-line max-lines-per-function --
+   3 个 SVG variant 内联,各自尺寸/笔触微调,拆三个子组件只是把 SVG 抄三份再加包装,文件总行数不降反升 */
 function Chime({ variant, w, h }: ChimeProps) {
   if (variant === 'c1') {
     return (
