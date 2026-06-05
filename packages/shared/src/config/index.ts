@@ -17,7 +17,11 @@ const envSchema = z.object({
   TTS_TYPE: z.enum(['mock', 'gpt-sovits', 'voxcpm']).default('mock'),
 
   // Brain（PRD §10 Q5）
-  BRAIN_TYPE: z.enum(['claude', 'deepseek', 'ollama', 'openai-compat', 'custom']).default('claude'),
+  // 默认 openai-compat — fork 者拿到 repo 后只要给 OPENAI_API_KEY + 改 BRAIN_TYPE 就能跑;
+  // 主人想用 claude CLI 走 BRAIN_TYPE=claude 显式打开 (避免没 set env 时静默回退到要 Pro 订阅的实现)
+  BRAIN_TYPE: z
+    .enum(['claude', 'deepseek', 'ollama', 'openai-compat', 'custom'])
+    .default('openai-compat'),
 
   // OpenAI-Compatible Brain · BYO LLM (DeepSeek / Ollama / vLLM / LMStudio / OpenRouter / OpenAI 本身 ...)
   // 任何说自己 "OpenAI-compatible" 的 /v1/chat/completions 服务都能用,
