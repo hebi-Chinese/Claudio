@@ -1,10 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
-  content: [
-    './app/**/*.{ts,tsx}',
-    '../../packages/ui/src/**/*.{ts,tsx}',
-  ],
+  content: ['./app/**/*.{ts,tsx}'],
   theme: {
     extend: {
       // 颜色全部走 CSS 变量（主题切换时只改变量定义）

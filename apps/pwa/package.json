@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@claudio/shared": "workspace:*",
-    "@claudio/ui": "workspace:*",
     "music-metadata": "^11.12.3",
     "next": "catalog:",
     "react": "catalog:",
