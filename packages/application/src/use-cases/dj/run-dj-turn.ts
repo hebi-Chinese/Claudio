@@ -165,39 +165,56 @@ async function* streamBrainTokens(
 }
 
 // 管理 TTS 的并发请求 — 按句 idx 顺序发起, 完成顺序 yield audio event
+// 关键: drainReady 同步消费"已 settled"的 audio event, 实现"brain 还在吐 token,
+// 已合成的句子已经能播了"的真交叉. 旧实现 drainReady 是空 generator,
+// 所有 audio event 都堆到 flushRemaining 时一次性给, 流式 TTS 退化成串行批处理.
 class PendingAudioQueue {
   private nextIdx = 0
-  private readonly inflight = new Map<number, Promise<DjTurnEvent | null>>()
+  private inflightCount = 0
+  private readonly ready: DjTurnEvent[] = []
+  // 等待 inflight settle 的 resolver — flushRemaining 用来"睡到下一个 TTS 完成"
+  private readonly waiters: (() => void)[] = []
 
   allocate(): number {
     const idx = this.nextIdx
     this.nextIdx += 1
+    this.inflightCount += 1
     return idx
   }
 
   startTts(deps: RunDjTurnDeps, text: string, idx: number): void {
-    const p = deps.tts
+    deps.tts
       .synthesize({ text, emotion: '中立' })
-      .then((tts): DjTurnEvent => ({ type: 'audio', sentenceIdx: idx, url: tts.audioUrl }))
+      .then((tts) => {
+        this.ready.push({ type: 'audio', sentenceIdx: idx, url: tts.audioUrl })
+      })
       .catch((err: unknown) => {
         deps.log?.warn(`tts failed for sentence ${String(idx)}`, err)
-        return null
       })
-    this.inflight.set(idx, p)
+      .finally(() => {
+        this.inflightCount -= 1
+        // 唤醒一个 flushRemaining 等待者 (如果有的话)
+        const waiter = this.waiters.shift()
+        if (waiter !== undefined) waiter()
+      })
   }
 
+  // 同步消费已 settled 的 audio event — 在 brain token loop 每个 token 后调一次
   *drainReady(): Generator<DjTurnEvent> {
-    // 同步版本: 不 await, 只把已 settled 的拿出来
-    // 实际上 Promise 不能同步查 settled 状态, 这里只删空 — flushRemaining 会真等
-    return
+    while (this.ready.length > 0) {
+      const ev = this.ready.shift()
+      if (ev !== undefined) yield ev
+    }
   }
 
+  // brain 流结束后等剩余 TTS 收尾 — 边等边吐, 不批处理到最后
   async *flushRemaining(): AsyncGenerator<DjTurnEvent> {
-    const promises = [...this.inflight.values()]
-    this.inflight.clear()
-    for (const p of promises) {
-      const ev = await p
-      if (ev !== null) yield ev
+    while (this.inflightCount > 0 || this.ready.length > 0) {
+      yield* this.drainReady()
+      if (this.inflightCount > 0) {
+        // 注册 waiter, settle 时被 .finally 唤醒
+        await new Promise<void>((resolve) => this.waiters.push(resolve))
+      }
     }
   }
 }
