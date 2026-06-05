@@ -44,8 +44,13 @@ type Ripple = {
 const DROPS_PER_1000PX = 0.16 // 每 1000 px² 一滴 → 1920×1080 ≈ 330 滴 (从 0.35 调低保 60fps)
 const LAYER_SPEEDS: readonly [number, number, number] = [200, 420, 700] // px/s
 const LAYER_LENS: readonly [number, number, number] = [8, 14, 22]
-const LAYER_ALPHAS: readonly [number, number, number] = [0.35, 0.55, 0.85]
+// alpha 从 0.35/0.55/0.85 下调 → 若隐若现 (主人原话: 太不自然了, 要若隐若现一点)
+// 0.1/0.18/0.32 太淡看不见, 0.35/0.55/0.85 太亮发白, 折中 0.22/0.36/0.55
+const LAYER_ALPHAS: readonly [number, number, number] = [0.22, 0.36, 0.55]
 const LAYER_WIDTHS: readonly [number, number, number] = [0.9, 1.3, 1.8]
+// 雨颜色从纯白 (220,235,255) 改偏冷蓝灰 — 主人原话: 至少颜色不能是白色
+// 接近窗外夜空冷光, 不喧宾夺主
+const DROP_COLOR_RGB = '160, 190, 220'
 
 const WIND_BASE_TILT = 0.12 // 默认风向 (右下倾)
 const WIND_POINTER_GAIN = 0.4 // 鼠标 x 偏移对风向影响
@@ -162,14 +167,13 @@ function stepDrops(drops: RainDrop[], dt: number, tilt: number, vp: Viewport): v
 }
 
 function drawDrops(ctx: CanvasRenderingContext2D, drops: readonly RainDrop[]): void {
-  // lighter 合成模式: 雨滴亮色叠加,无论背景什么色调都明显可见 (模拟反光感)
-  const prevOp = ctx.globalCompositeOperation
-  ctx.globalCompositeOperation = 'lighter'
+  // 之前用 lighter 模拟反光感, 但会让雨在暗夜背景上加亮发白, 跟"若隐若现"反向
+  // 改回 source-over, 让雨真的是半透叠在玻璃上 (主人 2026-06-05: 颜色不能是白色)
   ctx.lineCap = 'round'
   for (let layer = 0; layer < 3; layer++) {
     ctx.beginPath()
     ctx.lineWidth = LAYER_WIDTHS[layer as 0 | 1 | 2]
-    ctx.strokeStyle = `rgba(220,235,255,${String(LAYER_ALPHAS[layer as 0 | 1 | 2])})`
+    ctx.strokeStyle = `rgba(${DROP_COLOR_RGB},${String(LAYER_ALPHAS[layer as 0 | 1 | 2])})`
     for (const d of drops) {
       if (d.layer !== layer) continue
       ctx.moveTo(d.x, d.y)
@@ -177,7 +181,6 @@ function drawDrops(ctx: CanvasRenderingContext2D, drops: readonly RainDrop[]): v
     }
     ctx.stroke()
   }
-  ctx.globalCompositeOperation = prevOp
 }
 
 function pointerWind(pointer: Pointer, vp: Viewport): number {
