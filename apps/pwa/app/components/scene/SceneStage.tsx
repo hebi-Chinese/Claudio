@@ -318,13 +318,13 @@ type LWVars = {
   selected: Corner | null
 }
 // 跟 globals.css .scene-weather-canvas 的 var fallback 一致 (viewport %)
-// 由旧两段式数值 (left=-2.6 top=0 w=52 h=65 + corner offset) 换算后烧定
+// 主人 ?adjust=listen 1234 选角 + 方向键贴 listen-bg 斜窗户拉定 (主人 2026-06-05)
 const LW_DEFAULT: LWVars = {
   corners: {
-    tl: { x: -11.3, y: -33.9 },
-    tr: { x: 84.1, y: -27.4 },
-    br: { x: 83.9, y: 70.6 },
-    bl: { x: -11.5, y: 95.3 },
+    tl: { x: 8.7, y: -0.7 },
+    tr: { x: 56.7, y: -0.6 },
+    br: { x: 57.1, y: 50.6 },
+    bl: { x: 8.3, y: 63.1 },
   },
   selected: null,
 }
