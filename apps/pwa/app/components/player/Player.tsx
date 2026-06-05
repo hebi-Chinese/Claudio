@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { AtmosphereCanvas } from '../atmosphere/AtmosphereCanvas'
 import { BrowseAdjustHud } from '../browse/BrowseAdjustHud'
 import { BrowseSill } from '../browse/BrowseSill'
-import { useBrowseAdjuster } from '../browse/useBrowseAdjuster'
+import { BrowseWeatherOutline, useBrowseAdjuster } from '../browse/useBrowseAdjuster'
 import { CommandPalette } from '../command/CommandPalette'
 import { useCommandPalette } from '../command/useCommandPalette'
 import { WindowToggle } from '../room/WindowToggle'
@@ -127,7 +127,12 @@ function BrowseStageView({ p }: { readonly p: ShellProps }) {
         <AtmosphereCanvas weather={p.weather} className="browse-weather-canvas" />
       ) : null}
       <PlayerShell {...p} />
-      {adjusting ? <BrowseAdjustHud /> : null}
+      {adjusting ? (
+        <>
+          <BrowseAdjustHud />
+          <BrowseWeatherOutline />
+        </>
+      ) : null}
     </div>
   )
 }

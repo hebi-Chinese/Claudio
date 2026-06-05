@@ -968,19 +968,35 @@ nextjs-portal {
   overflow: hidden;
 }
 
-/* Browse 天气粒子 — 跟 search-bg.png 里窗户矩形对齐 (主人 ?adjust=browse 拉定) */
+/* Browse 天气粒子 — 满 viewport + polygon clip 跟 search-bg.png 窗户对齐
+   单段式: canvas 全屏, polygon ∩ viewport 自然出形状 (跟 Listen 同套模型) */
 .browse-weather-canvas {
   position: fixed;
-  left: var(--browse-weather-left, 21.4%);
-  top: var(--browse-weather-top, -0.6%);
-  width: var(--browse-weather-w, 52.5%);
-  height: var(--browse-weather-h, 52.6%);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(
+    var(--browse-weather-tl-x, 21.4%) var(--browse-weather-tl-y, -0.6%),
+    var(--browse-weather-tr-x, 73.9%) var(--browse-weather-tr-y, -0.6%),
+    var(--browse-weather-br-x, 73.9%) var(--browse-weather-br-y, 52%),
+    var(--browse-weather-bl-x, 21.4%) var(--browse-weather-bl-y, 52%)
+  );
   pointer-events: none;
   z-index: 3;
 }
 [data-adjust-mode='browse'] .browse-weather-canvas {
-  outline: 2px dashed #ff3060;
-  outline-offset: -1px;
+  z-index: 10;
+}
+
+/* Browse SVG 梯形描线 — 跟 Listen 同套 */
+.browse-weather-outline {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 11;
+  pointer-events: none;
+  overflow: visible;
 }
 
 /* ════════════════════════════════════════════════════════════════════════
