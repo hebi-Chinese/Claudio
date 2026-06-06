@@ -57,7 +57,7 @@ type Props = {
   readonly onOpenCmdk: () => void
   readonly queueLen?: number
   readonly weather: Weather
-  // 当前歌词行 — DJ 不在说话时, mic 旁字幕显这条
+  // mic 旁字幕优先级: DJ 文本 > 当前歌词行 > 歌名 · 歌手 (兜底, 歌词没加载/还没到)
   readonly currentLrcText?: string
 }
 
@@ -78,6 +78,7 @@ export function SceneStage(props: Props) {
       <SceneDjSubtitle
         djText={djMsg?.text ?? null}
         lrcText={props.currentLrcText ?? null}
+        songRef={songRefFromApi(props.song)}
         djLabel="DJ · 流萤"
       />
       <SceneVizBars audioRef={props.audioRef} playing={props.playing} />
@@ -602,33 +603,59 @@ function SceneFx() {
 }
 
 // ─── mic 旁字幕 (右中,跟 mic 底沿对齐) ───────────────────────────────────
-// 优先级: DJ 说话 > 当前歌词 > 啥都不显
-// label 也跟着切: DJ 在 → "DJ · 流萤"; 只剩歌词 → "♪ 歌词"
+// 优先级 3 层: DJ 说话 > 当前歌词 > 歌名·歌手 (常驻 banner, 歌词没到/没歌词时填空)
+// label 也跟着切, 让主人一眼知道是哪类:
+//   DJ      → "DJ · 流萤"
+//   歌词    → "♪ 歌词"
+//   歌信息  → "♫ 正在播放"
 
-type SubtitleLine = { readonly kind: 'dj' | 'lrc'; readonly label: string; readonly text: string }
+type SongRef = { readonly title: string; readonly artist: string }
+type SubtitleLine = {
+  readonly kind: 'dj' | 'lrc' | 'song'
+  readonly label: string
+  readonly text: string
+}
+
+function songRefFromApi(song: ApiSong | undefined): SongRef | null {
+  if (song === undefined) return null
+  const title = song.title.trim()
+  const artist = song.artists
+    .map((a) => a.name)
+    .join(' / ')
+    .trim()
+  if (title.length === 0) return null
+  return { title, artist }
+}
 
 function pickSubtitleLine(
   djText: string | null,
   lrcText: string | null,
+  songRef: SongRef | null,
   djLabel: string,
 ): SubtitleLine | null {
   const dj = djText?.trim() ?? ''
   if (dj.length > 0) return { kind: 'dj', label: djLabel, text: `“${dj}”` }
   const lrc = lrcText?.trim() ?? ''
   if (lrc.length > 0) return { kind: 'lrc', label: '♪ 歌词', text: lrc }
+  if (songRef !== null) {
+    const text = songRef.artist.length > 0 ? `${songRef.title} · ${songRef.artist}` : songRef.title
+    return { kind: 'song', label: '♫ 正在播放', text }
+  }
   return null
 }
 
 function SceneDjSubtitle({
   djText,
   lrcText,
+  songRef,
   djLabel,
 }: {
   readonly djText: string | null
   readonly lrcText: string | null
+  readonly songRef: SongRef | null
   readonly djLabel: string
 }) {
-  const line = pickSubtitleLine(djText, lrcText, djLabel)
+  const line = pickSubtitleLine(djText, lrcText, songRef, djLabel)
   if (line === null) return null
   return (
     <div className="scene-dj-text" aria-live="polite" role="status">
