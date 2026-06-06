@@ -8,9 +8,11 @@
 
 ## 一启动就跑得起来 — Mock 默认
 
-**没配任何 env**, 双击根目录 `claudio.bat` (或 `pnpm dev`) 就能跑:
+**只想看 UI** 的话: 双击 `claudio.bat` (或 `pnpm dev`), 不发 DJ chat 就行, 搜歌/挑歌都能用.
 
-- Brain 默认 `openai-compat` — fork 者只要 `OPENAI_API_KEY` 在 env 里就能跑 OpenAI 官方; 想换 DeepSeek/Ollama/Claude CLI 见"必选 1"
+**要 DJ chat 能回话** 必须配 brain (见必选 1) — 没配会 throw `BRAIN_TYPE=X 必须 set X_URL env`, 这是故意的不静默走错地方.
+
+- Brain 默认 `openai-compat`, **不预填任何 URL** — fork 者必须显式 set 一个 brand 专属 env var, 不然第一次 DJ chat 就抛错
 - TTS 默认 `mock` — 返回静音 wav, 听不到 DJ 声音但 UI 完整, 能正常挑歌 / 看队列
 - NCM 默认无 cookie — 能搜歌 + 听免登录的歌, 想要"我的歌单" 需扫码登录
 
@@ -25,13 +27,75 @@ LLM 用来:
 - 流式吐 DJ 串场词 (`IBrain.stream`)
 - 结构化选歌 / 生成 plan (`IBrain.generateJson` 走 json_object 模式)
 
-| 选项                                                               | 适用                                     | 配置 (写到 `.env`)                                                                                         |
-| ------------------------------------------------------------------ | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **Claude Code CLI**                                                | 主人 / 你已经装了 `claude` 并有 Pro 订阅 | `BRAIN_TYPE=claude`                                                                                        |
-| **DeepSeek API**                                                   | 推荐, 便宜 + 中文好                      | `BRAIN_TYPE=deepseek` + `OPENAI_API_KEY=sk-xxx` + `OPENAI_MODEL=deepseek-chat`                             |
-| **Ollama 本地**                                                    | 想完全离线 / 不花钱, 有 16GB+ RAM        | `BRAIN_TYPE=ollama` + `OPENAI_MODEL=qwen2.5:7b` (先 `ollama pull`)                                         |
-| **OpenAI 官方**                                                    |                                          | `BRAIN_TYPE=openai-compat` + `OPENAI_API_KEY=sk-proj-xxx` + `OPENAI_MODEL=gpt-4o-mini`                     |
-| **任意 OpenAI 兼容** (OpenRouter / Together / vLLM / 阿里通义 ...) |                                          | `BRAIN_TYPE=openai-compat` + `OPENAI_BASE_URL=<base>` + `OPENAI_API_KEY=<key>` + `OPENAI_MODEL=<model id>` |
+### 设计哲学 (主人 2026-06-07): URL 一层, brand 专属, 不预填
+
+每个 brain 类型读**自己专属的 URL env var**, 没有任何"默认 URL"兜底 — 没填 startup throw, 不静默走错地方.
+
+长 env 字符串放代码块更可读, 每个选项一节:
+
+#### Claude Code CLI
+
+适用: 主人本机装了 `claude` 且有 Pro 订阅.
+
+```bat
+set BRAIN_TYPE=claude
+```
+
+#### DeepSeek API (推荐: 便宜 + 中文好)
+
+```bat
+set BRAIN_TYPE=deepseek
+set DEEPSEEK_URL=https://api.deepseek.com/v1
+set OPENAI_API_KEY=sk-your-key
+set OPENAI_MODEL=deepseek-chat
+```
+
+#### Ollama 本地
+
+适用: 完全离线 / 免费, 需 16GB+ RAM, 先 `ollama pull qwen2.5:7b`.
+
+```bat
+set BRAIN_TYPE=ollama
+set OLLAMA_URL=http://localhost:11434/v1
+set OPENAI_MODEL=qwen2.5:7b
+```
+
+#### OpenAI 官方
+
+```bat
+set BRAIN_TYPE=openai-compat
+set OPENAI_BASE_URL=https://api.openai.com/v1
+set OPENAI_API_KEY=sk-proj-your-key
+set OPENAI_MODEL=gpt-4o-mini
+```
+
+#### 任意 OpenAI 兼容
+
+适用: OpenRouter / Together / vLLM / 阿里通义 / LMStudio 等.
+
+```bat
+set BRAIN_TYPE=openai-compat
+set OPENAI_BASE_URL=https://your-provider/v1
+set OPENAI_API_KEY=your-key
+set OPENAI_MODEL=model-id-on-that-provider
+```
+
+#### Custom
+
+fork 者自己接私有 LLM, 在 `apps/server/src/composition.ts` 的 `createBrain(...)` 调用里加 `customResolver: () => '<url>'`, 不走 env, 详见 brain README.
+
+⚠ **专属性是硬约束**: `BRAIN_TYPE=deepseek` 时只读 `DEEPSEEK_URL`, `OPENAI_BASE_URL` 也不会被偷偷用上来兜底. 反之亦然. 这是为了主人在 shell 里有残留 `OPENAI_BASE_URL=""` 这种 case 不会跨 brand 串味.
+
+### 最简 fork 配置
+
+主人用 deepseek 的话, 改 `claudio.bat` 顶部:
+
+```bat
+set "BRAIN=deepseek"
+set "DEEPSEEK_API_KEY=sk-your-key"
+```
+
+`claudio.bat` 里 BRAIN=deepseek case 会自动 set `DEEPSEEK_URL=https://api.deepseek.com/v1` + `OPENAI_API_KEY=%DEEPSEEK_API_KEY%` + `OPENAI_MODEL=deepseek-chat`, 主人只关心两件 (BRAIN 跟自己的 key).
 
 详细文档 [packages/infrastructure/src/brain/README.md](packages/infrastructure/src/brain/README.md)
 
@@ -114,10 +178,11 @@ claudio.bat        Windows 双击启动 (pnpm dev 包装)
 
 ## Stuck 怎么办
 
-| 症状                     | 第一步                                                                                               |
-| ------------------------ | ---------------------------------------------------------------------------------------------------- |
-| 前端报 `Failed to fetch` | `curl --noproxy "*" http://127.0.0.1:8787/api/login/status` — 200 = 前端问题, refused = 后端死了重起 |
-| 端口被占 EADDRINUSE      | `netstat -ano \| findstr ":3000"` 找 PID, `Stop-Process -Id <pid> -Force`                            |
-| dev server hang          | 杀 node 进程 + 走根目录 `pnpm dev` 重起 (并行启 pwa + server)                                        |
-| `pnpm dev` 起不来        | `pnpm install` 看是否依赖装全; 看 `package.json` engines `node >= 20`                                |
-| Brain 没响应             | 检查 `BRAIN_TYPE` + `OPENAI_*` 是否配齐 (对照"必选 1")                                               |
+| 症状                                                      | 第一步                                                                                                                                                            |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 前端报 `Failed to fetch`                                  | `curl --noproxy "*" http://127.0.0.1:8787/api/login/status` — 200 = 前端问题, refused = 后端死了重起                                                              |
+| 端口被占 EADDRINUSE                                       | `netstat -ano \| findstr ":3000"` 找 PID, `Stop-Process -Id <pid> -Force`                                                                                         |
+| dev server hang                                           | 杀 node 进程 + 走根目录 `pnpm dev` 重起 (并行启 pwa + server)                                                                                                     |
+| `pnpm dev` 起不来                                         | `pnpm install` 看是否依赖装全; 看 `package.json` engines `node >= 20`                                                                                             |
+| DJ chat 显示 `[出错: BRAIN_TYPE=X 必须 set X_URL env]`    | 主人/fork 者没 set 对应的 brand 专属 URL env (e.g. `BRAIN_TYPE=deepseek` 必须 set `DEEPSEEK_URL`). 设计是故意硬抛, 对照"必选 1"补 set. 不预填任何 default URL.    |
+| server log `brainType: openai-compat` 但你以为是 deepseek | env 没传到 server 进程. 看 `claudio.bat` 窗里 echo 的 `BRAIN_TYPE` 跟 server log 对照. 不一致 → bat 没运行到那段; 一致但 server 拿不到 → 检查 cmd → pnpm 中间环节 |

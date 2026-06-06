@@ -35,7 +35,9 @@ function logBrainConfig(env: ReturnType<typeof loadEnv>, log: LogLike): void {
   log.info(
     {
       brainType: env.BRAIN_TYPE,
-      openaiBaseUrl: env.OPENAI_BASE_URL,
+      deepseekUrl: env.DEEPSEEK_URL ?? '(none)',
+      ollamaUrl: env.OLLAMA_URL ?? '(none)',
+      openaiBaseUrl: env.OPENAI_BASE_URL ?? '(none)',
       openaiModel: env.OPENAI_MODEL,
       openaiKeyPrefix: env.OPENAI_API_KEY?.slice(0, 8) ?? '(none)',
       dbUrl: env.DATABASE_URL,

@@ -1,5 +1,27 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalPassThroughEnv": [
+    "BRAIN_TYPE",
+    "DEEPSEEK_URL",
+    "OLLAMA_URL",
+    "OPENAI_BASE_URL",
+    "OPENAI_API_KEY",
+    "OPENAI_MODEL",
+    "DEEPSEEK_API_KEY",
+    "TTS_TYPE",
+    "TTS_URL",
+    "REDIS_URL",
+    "SESSION_IDLE_MS",
+    "LONG_TERM_PATH",
+    "DATABASE_URL",
+    "NCM_COOKIE",
+    "USER_PREFS_DIR",
+    "MIGRATIONS_DIR",
+    "SERVER_PORT",
+    "PWA_PORT",
+    "NCM_PORT",
+    "NODE_ENV"
+  ],
   "tasks": {
     "dev": {
       "cache": false,
