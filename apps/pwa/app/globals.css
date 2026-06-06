@@ -1589,6 +1589,70 @@ nextjs-portal {
   transform: translateY(-1px);
 }
 
+/* 左下: 音量浮控 (⊘ 退出键上方) */
+.scene-volume {
+  position: fixed;
+  bottom: 80px;
+  left: 28px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 22px;
+  background: rgba(15, 12, 8, 0.55);
+  border: 1px solid rgba(240, 230, 210, 0.1);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+.scene-volume-btn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: rgba(245, 240, 225, 0.8);
+  font-size: 15px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: color 160ms ease, background 160ms ease;
+}
+.scene-volume-btn:hover {
+  background: rgba(245, 240, 225, 0.08);
+  color: rgba(252, 248, 235, 1);
+}
+.scene-volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(245, 240, 225, 0.2);
+  outline: none;
+  cursor: pointer;
+}
+.scene-volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(248, 244, 232, 0.92);
+  cursor: pointer;
+  border: 0;
+}
+.scene-volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(248, 244, 232, 0.92);
+  cursor: pointer;
+  border: 0;
+}
+
 /* 左下: 退出 listen (开窗) */
 .scene-corner-left {
   position: fixed;

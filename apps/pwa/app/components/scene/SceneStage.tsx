@@ -44,6 +44,10 @@ type Props = {
   readonly playing: boolean
   readonly userInitiatedTrack: boolean
   readonly language: LanguageHook
+  readonly volume: number
+  readonly muted: boolean
+  readonly onSetVolume: (v: number) => void
+  readonly onToggleMute: () => void
   readonly onTogglePlay: () => void
   readonly onPrev: () => void
   readonly onNext: () => void
@@ -88,6 +92,12 @@ export function SceneStage(props: Props) {
         t={props.language.t}
       />
       <ExitListenBtn onExit={props.onExitListen} title={props.language.t('browse')} />
+      <SceneVolume
+        volume={props.volume}
+        muted={props.muted}
+        onSetVolume={props.onSetVolume}
+        onToggleMute={props.onToggleMute}
+      />
       <SceneDjButton
         active={chatOpen}
         onToggle={() => {
@@ -802,6 +812,47 @@ function SceneDjButton({
         <span className="scene-dj-trigger-label">{active ? '×' : 'DJ'}</span>
         {active ? null : <span className="scene-dj-trigger-dot" />}
       </button>
+    </div>
+  )
+}
+
+// ─── 音量浮控 (Listen 模式左下偏上, ⊘ 退出按钮上方) ──────────────────────
+
+function SceneVolume({
+  volume,
+  muted,
+  onSetVolume,
+  onToggleMute,
+}: {
+  readonly volume: number
+  readonly muted: boolean
+  readonly onSetVolume: (v: number) => void
+  readonly onToggleMute: () => void
+}) {
+  const shown = muted ? 0 : volume
+  return (
+    <div className="scene-volume">
+      <button
+        type="button"
+        className="scene-volume-btn"
+        onClick={onToggleMute}
+        aria-label={muted ? '取消静音' : '静音'}
+        title={muted ? '取消静音' : '静音'}
+      >
+        {muted || volume === 0 ? '⌀' : '♪'}
+      </button>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={shown}
+        onChange={(e) => {
+          onSetVolume(parseFloat(e.target.value))
+        }}
+        className="scene-volume-slider"
+        aria-label="音量"
+      />
     </div>
   )
 }

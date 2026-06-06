@@ -96,6 +96,10 @@ function ListenStageView({ p }: { readonly p: ShellProps }) {
         language={p.language}
         queueLen={p.logic.state.queue.length}
         weather={p.weather}
+        volume={p.logic.state.volume}
+        muted={p.logic.state.muted}
+        onSetVolume={p.logic.actions.setVolume}
+        onToggleMute={p.logic.actions.toggleMute}
         onTogglePlay={p.logic.actions.togglePlay}
         onPrev={() => {
           p.trackMeta.markUserInitiated()
