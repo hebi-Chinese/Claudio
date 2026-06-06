@@ -26,7 +26,7 @@ Windows 用户也可以直接双击根目录 `claudio.bat`。
 人工配也行, 三个必选项:
 
 1. **LLM 大脑**: 改 `claudio.bat` 顶部 `set BRAIN=...` (`deepseek` / `ollama` / `openai` / `claude`), 见下面 "配 brain"
-2. **TTS 声音**: 改 `claudio.bat` 顶部 `set TTS=...` (`mock` / `gpt-sovits` / `voxcpm`), 详见 [tts/README](./packages/infrastructure/src/tts/README.md)
+2. **TTS 声音**: 改 `claudio.bat` 顶部 `set TTS=...` (`mock` / `gpt-sovits` / `voxcpm`). voxcpm 已内置 Python wrapper, 先 `cd tools/voxcpm-server && pip install -r requirements.txt && python app.py` 起 :8001, 再起 Claudio. 详见 [tts/README](./packages/infrastructure/src/tts/README.md) 跟 [voxcpm-server/README](./tools/voxcpm-server/README.md)
 3. **网易云账号** (可选): PWA 设置面板里扫码登录
 
 ### 配 brain

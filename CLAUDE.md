@@ -105,13 +105,44 @@ set "DEEPSEEK_API_KEY=sk-your-key"
 
 ## 必选 2 · 选一个 TTS 决定 DJ 怎么发声
 
-| 选项           | 适用                                                                                                                                                                                        | 配置                                                    |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| **mock**       | 默认, 静音 wav, 只想看 UI                                                                                                                                                                   | `TTS_TYPE=mock` (或不写)                                |
-| **gpt-sovits** | 主人本地 — 流萤声线 (主人定制模型), 需要起 GPT-SoVITS server                                                                                                                                | `TTS_TYPE=gpt-sovits` + `TTS_URL=http://127.0.0.1:8000` |
-| **voxcpm**     | **fork 者推荐** — 自然语言 voice design 不需要参考音频, 30 语言, 48kHz. **需要自行实现 adapter**, 见 [packages/infrastructure/src/tts/README.md](packages/infrastructure/src/tts/README.md) | `TTS_TYPE=voxcpm` + 你自己写的 adapter 配               |
+### 三个实现
 
-**AI 助手该问主人**: "DJ 要不要发声? 不发声直接 mock; 想要声音但不想部署, 我帮你写 voxcpm adapter (~2 小时); 主人已有 GPT-SoVITS server 就 gpt-sovits."
+#### mock (默认)
+
+只想看 UI, 返回静音 wav, UI 全 ok. `TTS_TYPE=mock` 或不写.
+
+#### gpt-sovits
+
+主人本地, 流萤声线 (主人定制模型), 需起 GPT-SoVITS server :8000.
+
+```bat
+set TTS_TYPE=gpt-sovits
+set TTS_URL=http://127.0.0.1:8000
+```
+
+#### voxcpm (fork 者推荐)
+
+OpenBMB VoxCPM2, 30 语言 + voice design 自然语言描述声音 (性别/年龄/情绪/语速,
+不需要参考音频), 48kHz. 已内置 Python wrapper 在 [tools/voxcpm-server/](tools/voxcpm-server/).
+
+```bat
+set TTS_TYPE=voxcpm
+set VOXCPM_URL=http://127.0.0.1:8001
+set VOXCPM_VOICE_DESIGN=温柔女声, 25 岁, 中性情绪
+```
+
+**AI 助手该问主人**: "DJ 要不要发声? 不发声直接 mock; 想要声音 fork 者推 voxcpm (`tools/voxcpm-server` 一键起, voice design 自然语言描声); 主人已有 GPT-SoVITS server 就 gpt-sovits."
+
+**起 voxcpm** (一次性, ~10 分钟):
+
+```bash
+cd tools/voxcpm-server
+python -m venv .venv && .venv\Scripts\activate
+pip install -r requirements.txt
+python app.py    # :8001, 首次拉模型 ~4GB
+```
+
+然后 `claudio.bat` 顶部改 `set "TTS=voxcpm"` 重起.
 
 ---
 

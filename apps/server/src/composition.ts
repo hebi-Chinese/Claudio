@@ -100,7 +100,11 @@ export function buildContainer(env: Env): Container {
       openaiApiKey: env.OPENAI_API_KEY,
       openaiModel: env.OPENAI_MODEL,
     }),
-    tts: createTts(env.TTS_TYPE, { ttsUrl: env.TTS_URL }),
+    tts: createTts(env.TTS_TYPE, {
+      ttsUrl: env.TTS_URL,
+      voxcpmUrl: env.VOXCPM_URL,
+      voxcpmVoiceDesign: env.VOXCPM_VOICE_DESIGN,
+    }),
     calendar: createCalendar('noop'),
     // cookie 优先级：DB 持久化 > env > undefined（启动后 cold-start 会再尝试加载）
     ncm: new NcmClient(env.NCM_COOKIE, clock),

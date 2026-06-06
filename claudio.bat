@@ -43,7 +43,21 @@ if /I "%BRAIN%"=="openai" (
     set "OPENAI_MODEL=gpt-4o-mini"
 )
 
-set "TTS_TYPE=%TTS%"
+rem ---- TTS: wipe stale, then per-tts mapping ----
+set "TTS_TYPE="
+set "VOXCPM_URL="
+if /I "%TTS%"=="mock" (
+    set "TTS_TYPE=mock"
+)
+if /I "%TTS%"=="gpt-sovits" (
+    set "TTS_TYPE=gpt-sovits"
+    rem TTS_URL default 127.0.0.1:8000 in shared/config, leave unset to inherit
+)
+if /I "%TTS%"=="voxcpm" (
+    set "TTS_TYPE=voxcpm"
+    set "VOXCPM_URL=http://127.0.0.1:8001"
+    rem optional: set "VOXCPM_VOICE_DESIGN=温柔女声, 25 岁, 中性情绪"
+)
 
 echo ============================================
 echo   Claudio  -  AI Music Radio
@@ -55,6 +69,7 @@ echo   OPENAI_URL   = %OPENAI_BASE_URL%
 echo   OPENAI_MODEL = %OPENAI_MODEL%
 echo   OPENAI_KEY   = %OPENAI_API_KEY:~0,8%...
 echo   TTS_TYPE     = %TTS_TYPE%
+echo   VOXCPM_URL   = %VOXCPM_URL%
 echo --------------------------------------------
 echo   PWA      http://localhost:3000
 echo   Server   http://localhost:8787

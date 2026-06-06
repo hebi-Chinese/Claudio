@@ -41,8 +41,14 @@ const envSchema = z.object({
   TTS_URL: z.string().url().default('http://127.0.0.1:8000'),
 
   // TTS 实现选择 — mock 默认让 fork 者首次 demo 不卡 (返回静音 wav, UI 全 ok)
-  // 想要真声音: gpt-sovits (需起 GPT-SoVITS server) / voxcpm (需自行实现 adapter)
+  //   gpt-sovits : 主人本地, 流萤声线 (需起 GPT-SoVITS server :8000)
+  //   voxcpm     : OpenBMB VoxCPM2, voice design 自然语言描声 (需起 tools/voxcpm-server :8001)
   TTS_TYPE: z.enum(['mock', 'gpt-sovits', 'voxcpm']).default('mock'),
+
+  // VoxCPM (TTS_TYPE=voxcpm 时必填) — 没 set startup throw, 不静默走错地方
+  VOXCPM_URL: z.string().url().optional(),
+  // VoxCPM voice design 自然语言描述声音 (性别/年龄/情绪/语速); 默认温柔女声
+  VOXCPM_VOICE_DESIGN: z.string().default('温柔女声, 25 岁, 中性情绪, 语速适中'),
 
   // Brain（PRD §10 Q5）
   // 默认 openai-compat — fork 者拿到 repo 后改 BRAIN_TYPE + 配对应 *_URL + *_API_KEY 就能跑

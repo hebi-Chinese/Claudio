@@ -10,6 +10,8 @@
     "DEEPSEEK_API_KEY",
     "TTS_TYPE",
     "TTS_URL",
+    "VOXCPM_URL",
+    "VOXCPM_VOICE_DESIGN",
     "REDIS_URL",
     "SESSION_IDLE_MS",
     "LONG_TERM_PATH",
