@@ -29,6 +29,21 @@ type LogLike = {
   readonly error: (o: unknown, m?: string) => void
 }
 
+// brain 配置全量 log — 排查 "fetch failed" 时一眼看到 base URL 是不是被歪了
+// (key 只打前 8 位防泄漏)
+function logBrainConfig(env: ReturnType<typeof loadEnv>, log: LogLike): void {
+  log.info(
+    {
+      brainType: env.BRAIN_TYPE,
+      openaiBaseUrl: env.OPENAI_BASE_URL,
+      openaiModel: env.OPENAI_MODEL,
+      openaiKeyPrefix: env.OPENAI_API_KEY?.slice(0, 8) ?? '(none)',
+      dbUrl: env.DATABASE_URL,
+    },
+    'container ready',
+  )
+}
+
 function installShutdown(app: AppLike, container: Container, log: LogLike): void {
   const shutdown = async (signal: string): Promise<void> => {
     log.info({ signal }, 'shutting down')
@@ -53,7 +68,7 @@ async function main(): Promise<void> {
   })
 
   const container = buildContainer(env)
-  logger.info({ brainType: env.BRAIN_TYPE, dbUrl: env.DATABASE_URL }, 'container ready')
+  logBrainConfig(env, logger)
 
   await runColdStart(container, logger)
 
