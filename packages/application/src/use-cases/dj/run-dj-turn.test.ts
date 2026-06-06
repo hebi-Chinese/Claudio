@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest'
 import { runDjTurn, type DjTurnEvent, type RunDjTurnDeps } from './run-dj-turn.js'
 
 import type {
-  ConversationEntry,
   IBrain,
   IClock,
   IConversationsRepo,
@@ -32,7 +31,6 @@ function fakeClock(): IClock {
 function fakeConversations(): IConversationsRepo {
   return {
     append: async () => undefined,
-    recent: async () => [] as readonly ConversationEntry[],
   }
 }
 

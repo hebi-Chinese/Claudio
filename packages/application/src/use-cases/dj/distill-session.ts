@@ -24,7 +24,6 @@ import type {
   ILongTermMemoryRepo,
   IShortTermMemoryRepo,
 } from '../../ports/index.js'
-import type { ExternalServiceError } from '@claudio/domain'
 
 export type DistillSessionDeps = {
   readonly brain: IBrain
@@ -73,6 +72,3 @@ export async function distillSession(deps: DistillSessionDeps): Promise<DistillS
   await deps.shortTerm.clearSession()
   return { ok: true, summary: parsed.summary.trim() }
 }
-
-// re-export ExternalServiceError 类型提示用 (此处无运行时依赖, 但留个 hint)
-export type DistillError = ExternalServiceError

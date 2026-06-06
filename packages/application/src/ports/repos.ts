@@ -58,18 +58,17 @@ export type INcmSnapshotRepo = {
   status(): Promise<{ exists: boolean; lastSnapshotAtMs: number | null }>
 }
 
-// ── DJ 对话历史 ──
+// ── DJ 对话历史 (sqlite append-only 归档) ──
+// shortTerm 接 prompt context 后, 这个表就只剩查询/分析用途, prompt 已不读
 export type ConversationEntry = {
   readonly tsMs: number
   readonly userMsg: string
   readonly djReply: string
   readonly brainLatencyMs?: number
-  readonly contextSize?: number
 }
 
 export type IConversationsRepo = {
   append(entry: ConversationEntry): Promise<void>
-  recent(limit: number): Promise<readonly ConversationEntry[]>
 }
 
 // ── 主人手写的喜好 (markdown 长/短期, DJ 推歌前读) ──

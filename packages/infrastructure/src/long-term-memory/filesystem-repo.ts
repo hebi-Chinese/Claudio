@@ -36,11 +36,14 @@ export function createFilesystemLongTermRepo(cfg: FilesystemLongTermConfig): ILo
   }
 }
 
+// 只把"文件不存在"当 null, 其他 (权限/磁盘) 抛出去 — 否则 load 会静默返空,
+// append 会基于空 base 重写, 数据丢光
 async function safeRead(path: string): Promise<string | null> {
   try {
     return await readFile(path, 'utf-8')
-  } catch {
-    return null
+  } catch (err: unknown) {
+    if (err instanceof Error && 'code' in err && err.code === 'ENOENT') return null
+    throw err
   }
 }
 

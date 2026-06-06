@@ -28,6 +28,9 @@ function isBlank(s: string | undefined): boolean {
   return s === undefined || s.trim().length === 0
 }
 
+// 30 min — 主人离开/挂机超过这个 → session 边界, 下次回来 DJ 不接上次话头
+const DEFAULT_SESSION_IDLE_MS = 30 * 60 * 1000
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
 
@@ -78,11 +81,7 @@ const envSchema = z.object({
   // 短期记忆 (session) Redis 连接串; 不给 → 走内存版 (单进程 fallback)
   REDIS_URL: z.string().optional(),
   // session idle 超时 (ms); 默认 30 min, 主人这段时间没说话 → 新 session
-  SESSION_IDLE_MS: z.coerce
-    .number()
-    .int()
-    .positive()
-    .default(30 * 60 * 1000),
+  SESSION_IDLE_MS: z.coerce.number().int().positive().default(DEFAULT_SESSION_IDLE_MS),
   // 长期记忆 distill markdown 文件路径; 默认 apps/server/data/dj-long-term.md
   LONG_TERM_PATH: z.string().optional(),
 })

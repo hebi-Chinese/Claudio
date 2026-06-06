@@ -146,10 +146,12 @@ export function buildSubtitlePrompt(args: SubtitleArgs): readonly BrainMessage[]
 
 // ─── 长期记忆段 ────────────────────────────────────────────────────────
 
+// 最近 N 条 distill 进 prompt — 太多会撑 token, 老的优先丢
+const LONG_TERM_CONTEXT_LIMIT = 12
+
 function formatLongTerm(entries?: readonly LongTermEntry[]): string | null {
   if (entries === undefined || entries.length === 0) return null
-  // 最近 N 条, 太多会撑 token; 老的优先丢
-  const recent = entries.slice(-12)
+  const recent = entries.slice(-LONG_TERM_CONTEXT_LIMIT)
   const lines = recent.map((e) => `- ${e.summary}`).join('\n')
   return `# 你已经认得的主人 (跨 session 累积的长期记忆, 顺时间排)\n${lines}\n\n用这些**自然地**问候/选歌, 但不要列出来给主人听, 也不要每条都引用.`
 }

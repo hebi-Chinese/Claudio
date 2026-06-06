@@ -9,12 +9,21 @@
 // → 调用方 (use-case) 拉出来 distill → 清掉 list → 下次 appendTurn 起新 session.
 
 import { ExternalServiceError } from '@claudio/domain'
+import { z } from 'zod'
 
 import type { IShortTermMemoryRepo, SessionTurn } from '@claudio/application'
 import type { Redis } from 'ioredis'
 
 const ACTIVE_KEY = 'claudio:mem:active'
 const SESSION_KEY = 'claudio:mem:session'
+
+// Redis 里 JSON.stringify 存的 SessionTurn 是 untrusted bytes — schema 漂移/外部写入会
+// 静默把坏数据喂进 prompt. zod 校验抛 → 让 wrap 包成 ExternalServiceError 上层看到.
+const sessionTurnSchema = z.object({
+  tsMs: z.number(),
+  userMsg: z.string(),
+  djReply: z.string(),
+}) satisfies z.ZodType<SessionTurn>
 
 export type RedisShortTermConfig = {
   readonly redis: Redis
@@ -26,18 +35,28 @@ export function createRedisShortTermRepo(cfg: RedisShortTermConfig): IShortTermM
   const wrap = redisErrorWrapper(cfg.redis)
   return {
     appendTurn: wrap('appendTurn', async (turn: SessionTurn) => {
-      // SET active key (重置 TTL) + RPUSH session list, multi 顺序保证
-      await cfg.redis
+      // SET active key (重置 TTL) + RPUSH session list, multi 顺序保证.
+      // 必须 assertMultiExecOk — ioredis exec() 单 cmd 失败不抛, 静默吞 →
+      // 调用方以为 turn 持久了实际没写
+      const results = await cfg.redis
         .multi()
         .set(ACTIVE_KEY, '1', 'EX', idleTtlSec)
         .rpush(SESSION_KEY, JSON.stringify(turn))
         .exec()
+      assertMultiExecOk('appendTurn', results)
     }),
     loadCurrentSession: wrap('loadCurrentSession', async () => {
-      const active = await cfg.redis.exists(ACTIVE_KEY)
-      if (active === 0) return []
-      const raw = await cfg.redis.lrange(SESSION_KEY, 0, -1)
-      return raw.map((s) => JSON.parse(s) as SessionTurn)
+      // EXISTS + LRANGE 必须原子 — 两次 round-trip 中间 TTL 可能过期,
+      // 把过期 session 的 turn 当 active 喂回 prompt
+      const results = await cfg.redis.multi().exists(ACTIVE_KEY).lrange(SESSION_KEY, 0, -1).exec()
+      assertMultiExecOk('loadCurrentSession', results)
+      // assertMultiExecOk 保 results 非 null + 各 cmd 没 err; 走到这能安全 narrow
+      const ok = results as readonly (readonly [Error | null, unknown])[]
+      // 形状: [[null, existsCount], [null, rangeArray]]
+      const activeCount = ok[0]?.[1] as number | undefined
+      if (activeCount === undefined || activeCount === 0) return []
+      const raw = (ok[1]?.[1] ?? []) as readonly string[]
+      return raw.map((s) => parseSessionTurn(s))
     }),
     isSessionActive: wrap('isSessionActive', async () => (await cfg.redis.exists(ACTIVE_KEY)) > 0),
     clearSession: wrap('clearSession', async () => {
@@ -47,6 +66,39 @@ export function createRedisShortTermRepo(cfg: RedisShortTermConfig): IShortTermM
     endSession: wrap('endSession', async () => {
       await cfg.redis.del(ACTIVE_KEY)
     }),
+  }
+}
+
+function parseSessionTurn(raw: string): SessionTurn {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch (err: unknown) {
+    throw new ExternalServiceError(
+      'redis-short-term',
+      `session entry not JSON: ${raw.slice(0, 80)}`,
+      undefined,
+      { cause: err },
+    )
+  }
+  return sessionTurnSchema.parse(parsed)
+}
+
+// ioredis multi/exec 返回 [[Error|null, result], ...]; 任一 Error 非 null 都得抛
+function assertMultiExecOk(
+  op: string,
+  results: readonly (readonly [Error | null, unknown])[] | null,
+): void {
+  if (results === null) {
+    // exec 整体失败 (e.g. EXECABORT) — ioredis 通常会 reject Promise 但兜底一下
+    throw new ExternalServiceError('redis-short-term', `${op}: multi/exec returned null`)
+  }
+  for (const [err, _val] of results) {
+    if (err !== null) {
+      throw new ExternalServiceError('redis-short-term', `${op}: cmd in multi failed`, undefined, {
+        cause: err,
+      })
+    }
   }
 }
 
@@ -62,6 +114,8 @@ function redisErrorWrapper(
       try {
         return await fn(...args)
       } catch (err: unknown) {
+        // 已经是 ExternalServiceError 直接抛, 不要再嵌一层 cause
+        if (err instanceof ExternalServiceError) throw err
         throw new ExternalServiceError('redis-short-term', `${op} failed`, undefined, {
           cause: err,
         })

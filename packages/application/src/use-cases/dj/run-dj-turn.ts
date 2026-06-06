@@ -189,10 +189,13 @@ async function loadAllMemory(deps: RunDjTurnDeps): Promise<{
   return { sessionTurns, prefs, longTerm }
 }
 
+// 最近 N 轮历史进 prompt, 老的丢掉 — 平衡上下文丰富度跟 token 成本
+const SESSION_HISTORY_LIMIT = 6
+
 // SessionTurn 跟 ConversationEntry 形状相近, buildDjPrompt 仍接 ConversationEntry —
 // 只用 tsMs/userMsg/djReply 三个字段, 这里做映射
 function sessionTurnsToHistory(turns: readonly SessionTurn[]): readonly ConversationEntry[] {
-  return turns.slice(-6).map((t) => ({
+  return turns.slice(-SESSION_HISTORY_LIMIT).map((t) => ({
     tsMs: t.tsMs,
     userMsg: t.userMsg,
     djReply: t.djReply,

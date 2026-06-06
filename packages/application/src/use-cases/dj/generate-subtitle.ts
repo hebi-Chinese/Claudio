@@ -51,9 +51,17 @@ export async function generateSubtitle(
   input: GenerateSubtitleInput,
 ): Promise<GenerateSubtitleResult> {
   // 长期记忆 + prefs 并行拉, 任一失败用空默认 (字幕场景比 chat 容错, 失败回退到模板)
+  // 失败必须留痕 — 否则 longTerm 反复 IO 错 / userPrefs 文件丢, DJ 字幕只是"没个性"
+  // 看不出根因
   const [longTerm, prefs] = await Promise.all([
-    deps.longTerm.load().catch(() => []),
-    deps.userPrefs.load(deps.nowMs).catch(() => ({ longTerm: '', shortTerm: '' })),
+    deps.longTerm.load().catch((err: unknown) => {
+      deps.log?.warn('generateSubtitle: longTerm.load failed', err)
+      return []
+    }),
+    deps.userPrefs.load(deps.nowMs).catch((err: unknown) => {
+      deps.log?.warn('generateSubtitle: userPrefs.load failed', err)
+      return { longTerm: '', shortTerm: '' }
+    }),
   ])
 
   const messages = buildSubtitlePrompt({

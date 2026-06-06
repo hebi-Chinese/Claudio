@@ -43,7 +43,9 @@ export function useDjCloud(props: Props): DjMessage | null {
     lastId.current = props.currentSong.id
     const { dispose } = startSubtitleFlow(props, setMsg, setFading)
     return dispose
-  }, [props.currentSong, props.previousSong, props.userInitiated, props.enabled, props.lang, props])
+    // props 整对象不进 deps — 它每帧都新, 会让 effect 每帧 re-fire,
+    // setMsg(null) 误清字幕. 单字段已覆盖 effect 实际读的状态.
+  }, [props.currentSong, props.previousSong, props.userInitiated, props.enabled, props.lang])
 
   if (msg === null) return null
   return fading ? { ...msg, id: `${msg.id}-fading` } : msg
@@ -61,6 +63,8 @@ function startSubtitleFlow(
   let t2 = 0
   const showText = (text: string): void => {
     if (cancelled) return
+    // id 用 song.id + Date.now() 拼 — React 用作 key, 同首歌触发新一轮字幕时
+    // 强制 remount 让 fade-in 重跑. 这里 Date.now 是合理的 UI-key, 不是业务时间.
     setMsg({ text, id: `${song.id}-${String(Date.now())}` })
     setFading(false)
     t1 = window.setTimeout(() => {
@@ -76,7 +80,10 @@ function startSubtitleFlow(
     .then((text) => {
       showText(text ?? localFallback(props))
     })
-    .catch(() => {
+    .catch((err: unknown) => {
+      // brain 挂了字幕得能跑 — 但 silent fallback 让我们在生产里完全见不到 brain 失败
+      // 至少 console.warn 留痕, 主人 F12 能看到, 不影响 UI
+      console.warn('[DJ subtitle] fetch failed, using local template:', err)
       showText(localFallback(props))
     })
   return {

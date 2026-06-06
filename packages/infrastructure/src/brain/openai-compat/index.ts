@@ -182,6 +182,8 @@ function wrapFetchError(provider: string, endpoint: string, err: unknown): Exter
   })
 }
 
+// 拼 HTTP error 信息时用 — body 读失败是次要的, 不能让"读 body 失败"挡掉"我要告诉
+// 上层 HTTP 500"这件事. 截断 500 字符防 OOM/log 风暴
 async function safeText(res: Response): Promise<string> {
   try {
     const t = await res.text()
@@ -241,6 +243,8 @@ function* yieldFromLines(lines: readonly string[]): Generator<string, 'continue'
   return 'continue'
 }
 
+// SSE 流里偶尔有半截/坏 chunk (server flush 时机 / 中间代理乱切) — 单 chunk 坏不该
+// 把整个 stream abort. 静默丢这条, 后续 chunk 还能继续解析. 流抽完用户也只损失几个 token
 function safeParseChunk(s: string): z.infer<typeof streamChunkSchema> | null {
   try {
     const raw: unknown = JSON.parse(s)
