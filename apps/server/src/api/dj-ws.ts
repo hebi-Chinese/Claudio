@@ -129,6 +129,8 @@ async function runTurnAndEmit(
       brain: ctx.container.brain,
       tts: ctx.container.tts,
       conversations: ctx.container.conversations,
+      shortTerm: ctx.container.shortTerm,
+      longTerm: ctx.container.longTerm,
       userPrefs: ctx.container.userPrefs,
       clock: ctx.container.clock,
       log: ucLog,

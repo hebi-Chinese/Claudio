@@ -15,7 +15,9 @@
     "./signal": "./src/signal/index.ts",
     "./db": "./src/db/index.ts",
     "./user-prefs": "./src/user-prefs/index.ts",
-    "./clock": "./src/clock/index.ts"
+    "./clock": "./src/clock/index.ts",
+    "./short-term-memory": "./src/short-term-memory/index.ts",
+    "./long-term-memory": "./src/long-term-memory/index.ts"
   },
   "scripts": {
     "dev": "tsc -b --watch",
@@ -34,6 +36,7 @@
     "better-sqlite3": "catalog:",
     "drizzle-orm": "catalog:",
     "execa": "catalog:",
+    "ioredis": "catalog:",
     "undici": "catalog:",
     "zod": "catalog:",
     "zod-to-json-schema": "catalog:"

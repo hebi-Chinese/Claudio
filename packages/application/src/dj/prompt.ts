@@ -6,7 +6,13 @@
 // 多轮历史 (最近 6 条) 转成 user/assistant 交替消息
 
 import type { DjContext } from './types.js'
-import type { ConversationEntry, BrainMessage, UserPrefs } from '../ports/index.js'
+import type {
+  BrainMessage,
+  ConversationEntry,
+  LongTermEntry,
+  SessionTurn,
+  UserPrefs,
+} from '../ports/index.js'
 
 // 真实电台 DJ 风格指令:
 //   - 不每句都点评, 有时只用 1 句话承接, 有时一段开场/串场
@@ -46,14 +52,17 @@ type BuildArgs = {
   readonly userText: string
   readonly context?: DjContext
   readonly prefs?: UserPrefs
+  // 自动 distill 出的长期记忆 (跨 session 累积, "几天后回来 DJ 还认得主人")
+  readonly longTerm?: readonly LongTermEntry[]
 }
 
 export function buildDjPrompt(args: BuildArgs): readonly BrainMessage[] {
-  const { history, userText, context, prefs } = args
-  // 三段 system: PERSONA 永远在; prefs 可能空 (返 null 时跳过); context 永远在
-  // SECURITY: prefs 已在 loadUserPrefs 里做 8KB cap, 但要警惕未来如果有自动写入
-  // prefs 的路径, prompt 注入风险会激活 — 现在的信任边界是 "本机手写"
+  const { history, userText, context, prefs, longTerm } = args
+  // system 段: PERSONA + 长期记忆 + 主人手写偏好 + 当前场景
+  // 顺序: PERSONA 永远在; 长期记忆 (有则放, 让 DJ 认得主人); prefs (手写补); context
   const sections: string[] = [PERSONA]
+  const ltBlock = formatLongTerm(longTerm)
+  if (ltBlock !== null) sections.push(ltBlock)
   const prefsBlock = formatPrefs(prefs)
   if (prefsBlock !== null) sections.push(prefsBlock)
   sections.push(formatContext(context))
@@ -65,6 +74,34 @@ export function buildDjPrompt(args: BuildArgs): readonly BrainMessage[] {
   }
   messages.push({ role: 'user', content: userText })
   return messages
+}
+
+// ─── Distill prompt: session 结束时把 N 个 turn 总结成 1-2 句长期记忆 ──
+
+const DISTILL_SYSTEM = `你是流萤的"记忆 distill 助手"。
+主人刚结束一段电台 session, 我会把这段 session 的对话给你看。
+你要判断: 这段里有没有"几天后再聊也还需要记得"的事 — 比如主人讲了自己的偏好/不喜欢的歌手/新喜欢的风格/近况(失恋/搬家)。
+**不要** 把"这段聊到一半没聊完的话头"当作值得记的 — 那是短期的, 一起丢掉.
+
+输出 JSON: { "summary": "1-2 句中文总结, 流萤口吻, 用第三人称'主人'", "worthKeeping": true|false }
+没值得记的就 worthKeeping=false, summary 留空字符串.`
+
+export function buildDistillPrompt(turns: readonly SessionTurn[]): readonly BrainMessage[] {
+  const transcript = turns.map((t) => `主人: ${t.userMsg}\n流萤: ${t.djReply}`).join('\n\n---\n\n')
+  return [
+    { role: 'system', content: DISTILL_SYSTEM },
+    { role: 'user', content: `这段 session 的对话:\n\n${transcript}` },
+  ]
+}
+
+// ─── 长期记忆段 ────────────────────────────────────────────────────────
+
+function formatLongTerm(entries?: readonly LongTermEntry[]): string | null {
+  if (entries === undefined || entries.length === 0) return null
+  // 最近 N 条, 太多会撑 token; 老的优先丢
+  const recent = entries.slice(-12)
+  const lines = recent.map((e) => `- ${e.summary}`).join('\n')
+  return `# 你已经认得的主人 (跨 session 累积的长期记忆, 顺时间排)\n${lines}\n\n用这些**自然地**问候/选歌, 但不要列出来给主人听, 也不要每条都引用.`
 }
 
 // 返回 null 表示无 prefs 可拼 (空文件 / 都没填) — 让调用方明确跳过这段, 不靠 '' 的隐式约定

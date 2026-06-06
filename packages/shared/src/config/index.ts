@@ -60,6 +60,18 @@ const envSchema = z.object({
   // 主人手写的喜好 markdown 目录 (apps/server/data/user-prefs)
   // 默认相对源文件解析, 可用 env 覆盖 (e.g. 多人测试 / Docker 挂载)
   USER_PREFS_DIR: z.string().optional(),
+
+  // ─── DJ 记忆系统 ───
+  // 短期记忆 (session) Redis 连接串; 不给 → 走内存版 (单进程 fallback)
+  REDIS_URL: z.string().optional(),
+  // session idle 超时 (ms); 默认 30 min, 主人这段时间没说话 → 新 session
+  SESSION_IDLE_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(30 * 60 * 1000),
+  // 长期记忆 distill markdown 文件路径; 默认 apps/server/data/dj-long-term.md
+  LONG_TERM_PATH: z.string().optional(),
 })
 
 export type Env = z.infer<typeof envSchema>

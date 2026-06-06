@@ -9,5 +9,6 @@
 export const USE_CASES_VERSION = 'm3-1' as const
 
 export * from './dj/run-dj-turn.js'
+export * from './dj/distill-session.js'
 export * from './login/complete-qr-login.js'
 export * from './snapshot/refresh-user-snapshot.js'

@@ -22,7 +22,9 @@ import {
   createTasteRepo,
   type DbClient,
 } from '@claudio/infrastructure/db'
+import { createFilesystemLongTermRepo } from '@claudio/infrastructure/long-term-memory'
 import { NcmClient } from '@claudio/infrastructure/ncm'
+import { createShortTermMemoryRepo } from '@claudio/infrastructure/short-term-memory'
 import { createTts } from '@claudio/infrastructure/tts'
 import { createFilesystemUserPrefsRepo } from '@claudio/infrastructure/user-prefs'
 
@@ -32,12 +34,14 @@ import type {
   ICalendarSource,
   IClock,
   IConversationsRepo,
+  ILongTermMemoryRepo,
   INcmAccountRepo,
   INcmClient,
   INcmSnapshotRepo,
   IPlanRepo,
   IPlaysRepo,
   IPrefsRepo,
+  IShortTermMemoryRepo,
   ISongRepo,
   ITasteRepo,
   ITtsClient,
@@ -63,6 +67,8 @@ export type Container = {
   readonly conversations: IConversationsRepo
   readonly taste: ITasteRepo
   readonly userPrefs: IUserPrefsRepo
+  readonly shortTerm: IShortTermMemoryRepo
+  readonly longTerm: ILongTermMemoryRepo
 }
 
 // migrations 路径解析:
@@ -72,6 +78,9 @@ const currentDir = dirname(fileURLToPath(import.meta.url))
 // user-prefs markdown 文件目录 (apps/server/data/user-prefs)
 // 路径相对源文件解析, 不靠 process.cwd() — 不同进程管理器 cwd 可能不一致
 const USER_PREFS_DIR = resolve(currentDir, '..', 'data', 'user-prefs')
+
+// 长期记忆 distill markdown 文件 (apps/server/data/dj-long-term.md)
+const LONG_TERM_PATH = resolve(currentDir, '..', 'data', 'dj-long-term.md')
 
 export function buildContainer(env: Env): Container {
   const dbClient = createDb(env.DATABASE_URL)
@@ -106,6 +115,19 @@ export function buildContainer(env: Env): Container {
     taste: createTasteRepo(dbClient),
     userPrefs: createFilesystemUserPrefsRepo({
       dataDir: env.USER_PREFS_DIR ?? USER_PREFS_DIR,
+    }),
+    shortTerm: createShortTermMemoryRepo({
+      redisUrl: env.REDIS_URL,
+      idleTtlMs: env.SESSION_IDLE_MS,
+      clock,
+      log: (msg, err) => {
+        // composition root 还没 logger, 临时打 stderr 让 Redis 连接问题别静默
+        // (server 起来后 fastify pino 会接, 这只是 ctor 那一下)
+        process.stderr.write(`[short-term-memory] ${msg}: ${String(err)}\n`)
+      },
+    }),
+    longTerm: createFilesystemLongTermRepo({
+      filePath: env.LONG_TERM_PATH ?? LONG_TERM_PATH,
     }),
   }
 }

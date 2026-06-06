@@ -1,19 +1,19 @@
 packages:
-  - "apps/*"
-  - "packages/*"
-  - "tools/*"
+  - 'apps/*'
+  - 'packages/*'
+  - 'tools/*'
 
 catalog:
   # ─── runtime / framework ───
   typescript: ^5.6.3
-  "@types/node": ^22.10.0
+  '@types/node': ^22.10.0
   tsx: ^4.19.0
 
   # ─── react / next ───
   react: ^19.0.0
   react-dom: ^19.0.0
-  "@types/react": ^19.0.0
-  "@types/react-dom": ^19.0.0
+  '@types/react': ^19.0.0
+  '@types/react-dom': ^19.0.0
   next: ^15.1.0
   tailwindcss: ^3.4.0
   autoprefixer: ^10.4.0
@@ -21,8 +21,8 @@ catalog:
 
   # ─── backend ───
   fastify: ^5.1.0
-  "@fastify/websocket": ^11.0.0
-  "@fastify/cors": ^10.0.0
+  '@fastify/websocket': ^11.0.0
+  '@fastify/cors': ^10.0.0
   pino: ^9.5.0
   pino-pretty: ^11.3.0
 
@@ -30,7 +30,7 @@ catalog:
   drizzle-orm: ^0.36.4
   drizzle-kit: ^0.28.0
   better-sqlite3: ^11.5.0
-  "@types/better-sqlite3": ^7.6.0
+  '@types/better-sqlite3': ^7.6.0
 
   # ─── validation / schema ───
   zod: ^3.23.8
@@ -40,15 +40,18 @@ catalog:
   undici: ^7.1.0
   execa: ^9.5.0
   node-cron: ^3.0.3
-  "@types/node-cron": ^3.0.0
+  '@types/node-cron': ^3.0.0
+
+  # ─── redis (DJ 短期内存热缓存) ───
+  ioredis: ^5.4.1
 
   # ─── netease ───
   NeteaseCloudMusicApi: ^4.32.0
 
   # ─── lint / test / format ───
   eslint: ^9.16.0
-  "@typescript-eslint/eslint-plugin": ^8.16.0
-  "@typescript-eslint/parser": ^8.16.0
+  '@typescript-eslint/eslint-plugin': ^8.16.0
+  '@typescript-eslint/parser': ^8.16.0
   typescript-eslint: ^8.16.0
   eslint-plugin-import: ^2.31.0
   eslint-plugin-promise: ^7.2.0

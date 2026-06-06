@@ -17,14 +17,20 @@ import { parseInlineActions } from '@claudio/shared/dj-ws'
 import { buildDjPrompt } from '../../dj/prompt.js'
 import { SentenceSegmenter } from '../../dj/sentence-segmenter.js'
 
+import { distillSession } from './distill-session.js'
+
 import type { DjContext } from '../../dj/types.js'
 import type {
   ConversationEntry,
   IBrain,
   IClock,
   IConversationsRepo,
+  ILongTermMemoryRepo,
+  IShortTermMemoryRepo,
   ITtsClient,
   IUserPrefsRepo,
+  LongTermEntry,
+  SessionTurn,
   UserPrefs,
 } from '../../ports/index.js'
 import type { ParsedAction } from '@claudio/shared/dj-ws'
@@ -47,6 +53,11 @@ export type UseCaseLogger = {
 export type RunDjTurnDeps = {
   readonly brain: IBrain
   readonly tts: ITtsClient
+  // shortTerm: 当前 session 的活跃对话 (Redis 热缓存); 替代旧的 conversations.recent
+  readonly shortTerm: IShortTermMemoryRepo
+  // longTerm: 跨 session 的累积事实 (主人是谁/喜好/近况); session 结束时自动 distill
+  readonly longTerm: ILongTermMemoryRepo
+  // 兼容保留: conversations 用于 sqlite 长期归档 (查询/分析用), 不进 prompt context
   readonly conversations: IConversationsRepo
   readonly userPrefs: IUserPrefsRepo
   readonly clock: IClock
@@ -67,11 +78,15 @@ export async function* runDjTurn(
   yield { type: 'turn_start', turnId: input.turnId }
 
   const startMs = deps.clock.nowMs()
-  const [history, prefs] = await loadHistoryAndPrefs(deps)
+  // 进 turn 前先检查: 上次 session 是否已过期但还有 turns 没 distill →
+  // 现在 distill 完再继续, 让本轮 prompt 拿到刚 distill 的长期记忆
+  await maybeDistillStaleSession(deps)
+  const { sessionTurns, prefs, longTerm } = await loadAllMemory(deps)
   const messages = buildDjPrompt({
-    history,
+    history: sessionTurnsToHistory(sessionTurns),
     userText: input.userText,
     prefs,
+    longTerm,
     ...(input.context !== undefined ? { context: input.context } : {}),
   })
 
@@ -100,37 +115,91 @@ export async function* runDjTurn(
   const { cleaned, actions } = parseInlineActions(fullReply)
   for (const action of actions) yield { type: 'action', action }
   yield { type: 'reply_done', fullReply: cleaned }
+  persistTurn(deps, input, cleaned, startMs)
+}
 
-  // Fire-and-forget DB persist (不阻塞下一轮 turn)
+// Fire-and-forget persist 双路: shortTerm Redis 热缓存 + sqlite 长期归档 (查询/分析)
+function persistTurn(
+  deps: RunDjTurnDeps,
+  input: RunDjTurnInput,
+  cleaned: string,
+  startMs: number,
+): void {
+  const nowMs = deps.clock.nowMs()
+  void deps.shortTerm
+    .appendTurn({ tsMs: nowMs, userMsg: input.userText, djReply: cleaned })
+    .catch((err: unknown) => {
+      deps.log?.warn('runDjTurn: shortTerm.appendTurn failed', err)
+    })
   void deps.conversations
     .append({
-      tsMs: deps.clock.nowMs(),
+      tsMs: nowMs,
       userMsg: input.userText,
       djReply: cleaned,
-      brainLatencyMs: deps.clock.nowMs() - startMs,
+      brainLatencyMs: nowMs - startMs,
     })
     .catch((err: unknown) => {
       deps.log?.warn('runDjTurn: conversations.append failed', err)
     })
 }
 
-// ─── helpers ────────────────────────────────────────────────────────────
+// ─── memory: distill 边界 + 加载所有 prompt context ────────────────────
 
-async function loadHistoryAndPrefs(
-  deps: RunDjTurnDeps,
-): Promise<readonly [readonly ConversationEntry[], UserPrefs]> {
-  // 并行加载, 任一失败用空默认 + 留 warn 痕迹
-  return Promise.all([
-    deps.conversations.recent(6).catch((err: unknown) => {
-      deps.log?.warn('runDjTurn: conversations.recent failed', err)
-      return [] as readonly ConversationEntry[]
+async function maybeDistillStaleSession(deps: RunDjTurnDeps): Promise<void> {
+  try {
+    const active = await deps.shortTerm.isSessionActive()
+    if (active) return // session 还活 — 继续, 不 distill
+    const turns = await deps.shortTerm.loadCurrentSession()
+    if (turns.length === 0) return // 没遗留 turns 要消化
+    // 上次 session 已过期且有内容 → 现在 distill (同步等完, 让本轮 prompt 拿到结果)
+    deps.log?.debug?.(`runDjTurn: distilling ${String(turns.length)} stale turns`)
+    await distillSession({
+      brain: deps.brain,
+      shortTerm: deps.shortTerm,
+      longTerm: deps.longTerm,
+      clock: deps.clock,
+      ...(deps.log !== undefined ? { log: deps.log } : {}),
+    })
+  } catch (err: unknown) {
+    // distill 失败不阻塞主 turn — 下次再试
+    deps.log?.warn('runDjTurn: maybeDistillStaleSession failed', err)
+  }
+}
+
+async function loadAllMemory(deps: RunDjTurnDeps): Promise<{
+  readonly sessionTurns: readonly SessionTurn[]
+  readonly prefs: UserPrefs
+  readonly longTerm: readonly LongTermEntry[]
+}> {
+  // 三路并行加载, 任一失败用空默认 + 留 warn 痕迹
+  const [sessionTurns, prefs, longTerm] = await Promise.all([
+    deps.shortTerm.loadCurrentSession().catch((err: unknown) => {
+      deps.log?.warn('runDjTurn: shortTerm.loadCurrentSession failed', err)
+      return [] as readonly SessionTurn[]
     }),
     deps.userPrefs.load(deps.clock.nowMs()).catch((err: unknown) => {
       deps.log?.warn('runDjTurn: userPrefs.load failed', err)
       return { longTerm: '', shortTerm: '' } satisfies UserPrefs
     }),
+    deps.longTerm.load().catch((err: unknown) => {
+      deps.log?.warn('runDjTurn: longTerm.load failed', err)
+      return [] as readonly LongTermEntry[]
+    }),
   ])
+  return { sessionTurns, prefs, longTerm }
 }
+
+// SessionTurn 跟 ConversationEntry 形状相近, buildDjPrompt 仍接 ConversationEntry —
+// 只用 tsMs/userMsg/djReply 三个字段, 这里做映射
+function sessionTurnsToHistory(turns: readonly SessionTurn[]): readonly ConversationEntry[] {
+  return turns.slice(-6).map((t) => ({
+    tsMs: t.tsMs,
+    userMsg: t.userMsg,
+    djReply: t.djReply,
+  }))
+}
+
+// ─── helpers ────────────────────────────────────────────────────────────
 
 // Brain stream + 按句切 + 异步 TTS dispatch — 抹平成单一 event stream
 async function* streamBrainTokens(

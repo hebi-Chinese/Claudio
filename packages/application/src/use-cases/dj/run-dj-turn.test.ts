@@ -8,8 +8,12 @@ import type {
   IBrain,
   IClock,
   IConversationsRepo,
+  ILongTermMemoryRepo,
+  IShortTermMemoryRepo,
   ITtsClient,
   IUserPrefsRepo,
+  LongTermEntry,
+  SessionTurn,
   UserPrefs,
 } from '../../ports/index.js'
 
@@ -35,6 +39,31 @@ function fakeConversations(): IConversationsRepo {
 function fakePrefs(): IUserPrefsRepo {
   return {
     load: async (): Promise<UserPrefs> => ({ longTerm: '', shortTerm: '' }),
+  }
+}
+
+function fakeShortTerm(): IShortTermMemoryRepo {
+  const turns: SessionTurn[] = []
+  return {
+    appendTurn: async (t) => {
+      turns.push(t)
+    },
+    loadCurrentSession: async () => [...turns],
+    isSessionActive: async () => true,
+    clearSession: async () => {
+      turns.length = 0
+    },
+    endSession: async () => undefined,
+  }
+}
+
+function fakeLongTerm(): ILongTermMemoryRepo {
+  const entries: LongTermEntry[] = []
+  return {
+    load: async () => [...entries],
+    append: async (e) => {
+      entries.push(e)
+    },
   }
 }
 
@@ -72,6 +101,8 @@ function baseDeps(brain: IBrain, tts: ITtsClient): RunDjTurnDeps {
     brain,
     tts,
     conversations: fakeConversations(),
+    shortTerm: fakeShortTerm(),
+    longTerm: fakeLongTerm(),
     userPrefs: fakePrefs(),
     clock: fakeClock(),
   }
