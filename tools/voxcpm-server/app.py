@@ -1,15 +1,21 @@
 """VoxCPM HTTP wrapper — 把 Python in-process API 包成 :8001/synthesize.
 
 为啥要这层:
-  VoxCPM (OpenBMB/VoxCPM2) 是 Python 库, model.generate(text, voice_design) 在进程内跑.
+  VoxCPM (OpenBMB/VoxCPM2) 是 Python 库, model.generate(text, ...) 在进程内跑.
   Claudio 后端是 Node/TS 的 Fastify, 不能跨语言直调, 所以包一层 HTTP.
 
 API:
-  POST /synthesize { text, voice_design? }  →  { audio_url }
-  GET  /outputs/<file>                       →  生成的 wav
+  POST /synthesize { text, ... }  →  { audio_url }
+  GET  /outputs/<file>            →  生成的 wav
 
 跟 gpt-sovits :8000/infer_single 的响应字段 (audio_url) 故意对齐, 让 TS adapter
 风格一致 (zod 同一套 shape).
+
+VoxCPM2 Voice Design 备注:
+  README 说 VoxCPM2 支持 "voice design" 从自然语言描述生成新嗓子, 但 Python
+  generate() API 实际上**没有 voice_design 参数**, 看源码只接 prompt_wav_path/
+  prompt_text/reference_wav_path 这类. Voice Design 大概率走 Gradio webui 那
+  套包装. 目前先用默认嗓子, 后续真要个性化嗓子再加 reference_wav_path 模式.
 
 启动: 见 README.md
 """
@@ -27,12 +33,12 @@ from pydantic import BaseModel, Field
 from voxcpm import VoxCPM
 
 # ─── 配置 ──────────────────────────────────────────────────────────────
-# 模型缓存目录: 默认走 HF cache; 主人想固定路径就 export VOXCPM_MODEL_PATH
+# 模型: 默认从 HF cache (openbmb/VoxCPM2) 找; 主人 set VOXCPM_MODEL=./VoxCPM2
+# 指本地路径就用本地 (国内 ModelScope 下载到本地后这条用得着)
 MODEL_NAME = os.environ.get("VOXCPM_MODEL", "openbmb/VoxCPM2")
 HOST = os.environ.get("VOXCPM_HOST", "127.0.0.1")
 PORT = int(os.environ.get("VOXCPM_PORT", "8001"))
 OUT_DIR = Path(os.environ.get("VOXCPM_OUT_DIR", "outputs"))
-DEFAULT_VOICE_DESIGN = "温柔女声, 25 岁, 中性情绪, 语速适中"
 # 限制单条文本长度防 OOM/超时 — vox 真上限是 token 不是字符, 留点裕度
 MAX_TEXT_LEN = 500
 
@@ -54,7 +60,6 @@ app = FastAPI(title="VoxCPM TTS wrapper", version="1.0")
 
 class SynthesizeRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=MAX_TEXT_LEN)
-    voice_design: str = Field(default=DEFAULT_VOICE_DESIGN, max_length=400)
     # cfg/timesteps 暴露给调用方调参; 默认按 vox README
     cfg_value: float = Field(default=2.0, ge=0.5, le=5.0)
     inference_timesteps: int = Field(default=10, ge=4, le=50)
@@ -70,7 +75,6 @@ def synthesize(req: SynthesizeRequest) -> SynthesizeResponse:
     try:
         wav = model.generate(
             text=req.text,
-            voice_design=req.voice_design,
             cfg_value=req.cfg_value,
             inference_timesteps=req.inference_timesteps,
         )

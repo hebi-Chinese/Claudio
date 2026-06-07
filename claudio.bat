@@ -9,7 +9,7 @@ rem    BRAIN: claude / deepseek / ollama / openai
 rem    TTS  : mock / gpt-sovits / voxcpm
 rem ============================================
 set "BRAIN=deepseek"
-set "TTS=mock"
+set "TTS=voxcpm"
 
 rem ---- only preset matching brain's key placeholder ----
 if /I "%BRAIN%"=="deepseek" if not defined DEEPSEEK_API_KEY set "DEEPSEEK_API_KEY=sk-PUT-YOUR-DEEPSEEK-KEY-HERE"
@@ -56,6 +56,8 @@ if /I "%TTS%"=="gpt-sovits" (
 if /I "%TTS%"=="voxcpm" (
     set "TTS_TYPE=voxcpm"
     set "VOXCPM_URL=http://127.0.0.1:8001"
+    rem local model path: avoid HF download if VPN is off; ModelScope-downloaded snapshot lives here
+    set "VOXCPM_MODEL=%~dp0tools\voxcpm-server\VoxCPM2"
     rem optional: set "VOXCPM_VOICE_DESIGN=gentle female, 25, neutral mood"
 )
 
@@ -88,6 +90,7 @@ echo   OPENAI_MODEL = %OPENAI_MODEL%
 echo   OPENAI_KEY   = %OPENAI_API_KEY:~0,8%...
 echo   TTS_TYPE     = %TTS_TYPE%
 echo   VOXCPM_URL   = %VOXCPM_URL%
+echo   VOXCPM_MODEL = %VOXCPM_MODEL%
 echo --------------------------------------------
 echo   PWA      http://localhost:3000
 echo   Server   http://localhost:8787

@@ -79,7 +79,7 @@ export function SceneStage(props: Props) {
         djText={djMsg?.text ?? null}
         lrcText={props.currentLrcText ?? null}
         songRef={songRefFromApi(props.song)}
-        djLabel="DJ · 流萤"
+        djLabel="DJ · 夜间电台"
       />
       <SceneVizBars audioRef={props.audioRef} playing={props.playing} />
       <SceneFx />
@@ -605,7 +605,7 @@ function SceneFx() {
 // ─── mic 旁字幕 (右中,跟 mic 底沿对齐) ───────────────────────────────────
 // 优先级 3 层: DJ 说话 > 当前歌词 > 歌名·歌手 (常驻 banner, 歌词没到/没歌词时填空)
 // label 也跟着切, 让主人一眼知道是哪类:
-//   DJ      → "DJ · 流萤"
+//   DJ      → djLabel (默认 "DJ · 夜间电台")
 //   歌词    → "♪ 歌词"
 //   歌信息  → "♫ 正在播放"
 

@@ -2,3 +2,6 @@
 outputs/
 __pycache__/
 *.pyc
+# 4.7GB model snapshot (ModelScope/HF 下载下来的, 不进 git)
+VoxCPM2/
+modelscope_cache/
