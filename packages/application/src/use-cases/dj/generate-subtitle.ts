@@ -1,4 +1,4 @@
-// generateSubtitle use-case · 切歌时让 brain 生成一句字幕 (流萤声口)
+// generateSubtitle use-case · 切歌时让 brain 生成一句字幕 (深夜电台口吻)
 // 替代旧的 useDjCloud 本地模板抽签 — 主人提的"DJ 是字幕贡献者", 跟 chat 用同一套大脑.
 //
 // 输入:

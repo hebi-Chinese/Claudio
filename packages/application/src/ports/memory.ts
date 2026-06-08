@@ -32,7 +32,7 @@ export type IShortTermMemoryRepo = {
 export type LongTermEntry = {
   /** 这条 entry 是什么时候 distill 出来的 (epoch ms) */
   readonly tsMs: number
-  /** distill 出的总结文本 (1-2 句, 流萤 voice) */
+  /** distill 出的总结文本 (1-2 句中文, DJ 第三人称视角) */
   readonly summary: string
 }
 

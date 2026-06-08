@@ -3,8 +3,7 @@
 // Clean Arch: 接口必须在 application 层,不能让 infra 反向声明接口让 application 依赖
 
 import type { NcmUserSnapshot } from './ncm.js'
-import type { Bubble, Plan, PlanId, Song, SongId } from '@claudio/domain'
-import type { z } from 'zod'
+import type { Song, SongId } from '@claudio/domain'
 
 export type PlaySource = 'plan' | 'fm' | 'manual' | 'recommendation' | 'search'
 
@@ -24,23 +23,6 @@ export type IPlaysRepo = {
   recordPlay(play: PlayRecord): Promise<void>
   recentPlays(limit: number): Promise<readonly PlayRecord[]>
   countPlays(songId: SongId, sinceMs: number): Promise<number>
-}
-
-export type IBubblesRepo = {
-  save(bubble: Bubble): Promise<void>
-  recent(limit: number): Promise<readonly Bubble[]>
-}
-
-export type IPlanRepo = {
-  findByDate(dateIso: string): Promise<Plan | null>
-  save(plan: Plan): Promise<void>
-  markStatus(planId: PlanId, slotAtMs: number, status: 'played' | 'skipped'): Promise<void>
-}
-
-export type IPrefsRepo = {
-  /** 用 zod schema 校验+类型推断 */
-  get<T>(key: string, schema: z.ZodSchema<T>): Promise<T | null>
-  set<T>(key: string, value: T, schema: z.ZodSchema<T>): Promise<void>
 }
 
 // ── NCM 用户账号 cookie 持久化 ──
@@ -82,19 +64,4 @@ export type UserPrefs = {
 
 export type IUserPrefsRepo = {
   load(nowMs: number): Promise<UserPrefs>
-}
-
-// ── Taste snapshot (markdown 内容) ──
-export type TasteSnapshotEntry = {
-  readonly id: number
-  readonly takenAtMs: number
-  readonly content: string
-  readonly reason?: string
-}
-
-export type ITasteRepo = {
-  append(content: string, reason?: string): Promise<number>
-  latest(): Promise<TasteSnapshotEntry | null>
-  list(limit: number): Promise<readonly TasteSnapshotEntry[]>
-  byId(id: number): Promise<TasteSnapshotEntry | null>
 }

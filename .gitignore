@@ -61,3 +61,4 @@ yarn-error.log*
 
 # personal scratch / 设计草图等不进 git
 photos/
+audit_out.json

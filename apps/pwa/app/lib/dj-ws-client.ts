@@ -171,8 +171,10 @@ function openWs(args: OpenWsArgs): WebSocket {
     try {
       const json: unknown = JSON.parse(String(evt.data))
       parsed = wsServerMsgSchema.parse(json)
-    } catch {
-      return // ignore bad frames
+    } catch (err: unknown) {
+      // schema 漂移 / JSON 坏 → 丢这帧, 但留痕 — 否则 server 协议改了 dev/prod 都见不到
+      console.warn('[dj-ws] discarded malformed frame:', String(evt.data).slice(0, 120), err)
+      return
     }
     applyServerMsg(parsed, args)
   }
@@ -242,7 +244,10 @@ function sendRaw(ws: WebSocket | null, msg: WsClientMsg): boolean {
   try {
     ws.send(JSON.stringify(msg))
     return true
-  } catch {
+  } catch (err: unknown) {
+    // 罕见: JSON.stringify 转换循环引用, 或 ws.send 在 readyState 检查后被关
+    // 调用方拿 false 只能区分"发了/没发", 不知道为啥 — 留痕区分协议崩 vs 偶发掉线
+    console.warn('[dj-ws] sendRaw threw unexpectedly:', err)
     return false
   }
 }

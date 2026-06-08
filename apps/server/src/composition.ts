@@ -5,21 +5,16 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { createBrain } from '@claudio/infrastructure/brain'
+import { createSystemClock } from '@claudio/infrastructure/clock'
 // 注: migration path 不再在这里写死, 默认 createDb 用 infra bundled migrations
 //    composition root 只在主人显式传 env.MIGRATIONS_DIR 时覆盖
-import { createCalendar } from '@claudio/infrastructure/calendar'
-import { createSystemClock } from '@claudio/infrastructure/clock'
 import {
-  createBubblesRepo,
   createConversationsRepo,
   createDb,
   createNcmAccountRepo,
   createNcmSnapshotRepo,
-  createPlanRepo,
   createPlaysRepo,
-  createPrefsRepo,
   createSongRepo,
-  createTasteRepo,
   type DbClient,
 } from '@claudio/infrastructure/db'
 import { createFilesystemLongTermRepo } from '@claudio/infrastructure/long-term-memory'
@@ -30,20 +25,15 @@ import { createFilesystemUserPrefsRepo } from '@claudio/infrastructure/user-pref
 
 import type {
   IBrain,
-  IBubblesRepo,
-  ICalendarSource,
   IClock,
   IConversationsRepo,
   ILongTermMemoryRepo,
   INcmAccountRepo,
   INcmClient,
   INcmSnapshotRepo,
-  IPlanRepo,
   IPlaysRepo,
-  IPrefsRepo,
   IShortTermMemoryRepo,
   ISongRepo,
-  ITasteRepo,
   ITtsClient,
   IUserPrefsRepo,
 } from '@claudio/application'
@@ -53,19 +43,14 @@ export type Container = {
   readonly env: Env
   readonly brain: IBrain
   readonly tts: ITtsClient
-  readonly calendar: ICalendarSource
   readonly ncm: INcmClient
   readonly db: DbClient
   readonly clock: IClock
   readonly songs: ISongRepo
   readonly plays: IPlaysRepo
-  readonly bubbles: IBubblesRepo
-  readonly plan: IPlanRepo
-  readonly prefs: IPrefsRepo
   readonly snapshot: INcmSnapshotRepo
   readonly account: INcmAccountRepo
   readonly conversations: IConversationsRepo
-  readonly taste: ITasteRepo
   readonly userPrefs: IUserPrefsRepo
   readonly shortTerm: IShortTermMemoryRepo
   readonly longTerm: ILongTermMemoryRepo
@@ -105,20 +90,15 @@ export function buildContainer(env: Env): Container {
       voxcpmUrl: env.VOXCPM_URL,
       voxcpmVoiceDesign: env.VOXCPM_VOICE_DESIGN,
     }),
-    calendar: createCalendar('noop'),
     // cookie 优先级：DB 持久化 > env > undefined（启动后 cold-start 会再尝试加载）
     ncm: new NcmClient(env.NCM_COOKIE, clock),
     db: dbClient,
     clock,
     songs: createSongRepo(dbClient),
     plays: createPlaysRepo(dbClient),
-    bubbles: createBubblesRepo(dbClient),
-    plan: createPlanRepo(dbClient),
-    prefs: createPrefsRepo(dbClient),
     snapshot: createNcmSnapshotRepo(dbClient),
     account: accountRepo,
     conversations: createConversationsRepo(dbClient),
-    taste: createTasteRepo(dbClient),
     userPrefs: createFilesystemUserPrefsRepo({
       dataDir: env.USER_PREFS_DIR ?? USER_PREFS_DIR,
     }),

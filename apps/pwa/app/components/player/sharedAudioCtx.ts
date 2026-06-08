@@ -30,7 +30,10 @@ export function getSharedAudioCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null
   try {
     shared = new AudioContext()
-  } catch {
+  } catch (err: unknown) {
+    // 浏览器自动播放策略 / SecurityError (非 secure origin) / 资源限制 都会抛
+    // 失败 → analyser/ducking/unlock 全降级, 必须留痕否则查无可查
+    console.warn('[sharedAudioCtx] AudioContext() failed, audio features disabled:', err)
     return null
   }
   return shared

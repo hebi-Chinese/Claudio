@@ -1,0 +1,50 @@
+name: ci
+
+# 触发: 推 main 或对 main 开 PR. 手动 dispatch 也开着.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 同分支重复推时, 取消上一个跑没跑完的 (省 CI 时间)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # 一锅煮: typecheck + lint + test. 任何一步炸就 fail. turbo cache 会让
+  # 重跑很快 (但 GH Actions 跨 run 没复用 cache, 第一次纯冷启动).
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # pnpm 必须先于 setup-node, 因为 setup-node 的 cache 配置依赖 pnpm 已就位
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install deps
+        # --frozen-lockfile 防 CI 偷偷升级依赖 (主人本机 pnpm-lock 是真相)
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test

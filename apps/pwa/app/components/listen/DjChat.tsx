@@ -265,11 +265,11 @@ async function dispatchAction(action: DjAction, handlers: ActionHandlerArgs): Pr
       return
     }
     if (action.kind === 'play') handlers.onPlay(song)
-    // 'queue' 也走 onPlay 暂时 — 真 enqueue 需要把 actions.queueSong 传进来,M3.1 再做
+    // TODO(2026-06-08): 'queue' 也走 onPlay 暂时 — 真 enqueue 需要把 actions.queueSong 传进来, M3.1 再做
     if (action.kind === 'queue') handlers.onPlay(song)
   } catch (err: unknown) {
     // DANGEROUS-1 fix: search 失败必须留痕 — 否则 DJ 说了 "好的这就放" 但实际没放, 用户没任何反馈
-    // 后续 M3.1 应把 error 通过 onError handler 反馈给 UI (toast 或 chat bubble)
+    // TODO(2026-06-08): M3.1 把 error 通过 onError handler 反馈给 UI (toast 或 chat bubble)
     console.error('[DjChat] dispatchAction: search failed for', action.query, err)
   }
 }

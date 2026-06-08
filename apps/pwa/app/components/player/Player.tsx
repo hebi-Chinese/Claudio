@@ -125,29 +125,7 @@ function ListenStageView({ p }: { readonly p: ShellProps }) {
 // 当前歌词行 → optional prop (exactOptionalPropertyTypes 不接受 undefined 显式赋值,
 // 必须 spread 才能省 key)
 function lrcTextProp(p: ShellProps): { currentLrcText?: string } {
-  const lines = p.logic.state.lrcLines
-  const idx = p.logic.activeLrcIndex
-  const text = lines[idx]?.text
-  // 一次性诊断: 让主人 F12 console 看 LRC 数据是不是真到 SceneStage
-  // TODO(2026-06-07): 主人确认 LRC 字幕显示正常后删
-  if (typeof window !== 'undefined') {
-    type LrcDebug = { lastLogMs: number }
-    const w = window as unknown as { __lrcDebug?: LrcDebug }
-    const dbg = (w.__lrcDebug ??= { lastLogMs: 0 })
-    const now = Date.now()
-    if (now - dbg.lastLogMs > 2000) {
-      dbg.lastLogMs = now
-      // eslint-disable-next-line no-console -- 一次性诊断, 主人确认后删整块
-      console.log('[LRC]', {
-        linesCount: lines.length,
-        firstLineTimeMs: lines[0]?.timeMs ?? '(none)',
-        currentTimeSec: p.logic.state.currentTimeSec,
-        activeIdx: idx,
-        text: text ?? '(none)',
-        lrcLoading: p.logic.state.lrcLoading,
-      })
-    }
-  }
+  const text = p.logic.state.lrcLines[p.logic.activeLrcIndex]?.text
   return text !== undefined ? { currentLrcText: text } : {}
 }
 

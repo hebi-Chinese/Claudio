@@ -196,7 +196,7 @@ function localFallback(opts: Props): string {
 }
 
 // ────────────────────────────────────────────────────────────────────────
-// 文案生成 (纯函数,易测)
+// 本地 fallback 文案 — 模板抽签 (用 Math.random, 故不可确定; 给 brain 挂时兜底)
 
 type ComposeOpts = {
   readonly currentSong: ApiSong

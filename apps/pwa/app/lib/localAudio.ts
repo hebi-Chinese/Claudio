@@ -26,8 +26,10 @@ export async function parseLocalFile(file: File, idx: number): Promise<ApiSong> 
       coverUrl: extractCoverUrl(meta.common.picture),
       localUrl,
     }
-  } catch {
-    // 没 tag / 解析失败 — 文件名兜底,照样可播
+  } catch (err: unknown) {
+    // 没 tag / 解析失败 / 新格式没支持 — 文件名兜底, 照样可播
+    // 留痕: 不打就完全摸不到为啥 metadata 没出来 (新格式? 文件烂?)
+    console.warn('[localAudio] tag parse failed for', file.name, '— fallback to filename:', err)
     return {
       id,
       ncmId: id,
