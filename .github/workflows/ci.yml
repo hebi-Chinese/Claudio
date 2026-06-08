@@ -34,7 +34,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
+          # 暂不用 cache: 'pnpm' — monorepo + pnpm 11 偶发 cache-dependency 解析问题
+          # 等 CI 跑稳后再加回 (pnpm install ~30s, 不是瓶颈)
 
       - name: Install deps
         # --frozen-lockfile 防 CI 偷偷升级依赖 (主人本机 pnpm-lock 是真相)
